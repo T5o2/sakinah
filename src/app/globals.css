@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/* Design tokens — SPEC §2. */
+@theme {
+  --color-ink: #0a0a0a;
+  --color-kiswa: #141312;
+  --color-gold: #c9a45c;
+  --color-gold-soft: #e6cf9a;
+  --color-marble: #f5f2ea;
+  --color-stone: #a39b8b;
+  --color-sand: #d8cbb0;
+  --color-sage: #5f7a67;
+}
+
+/* Font roles resolve per language through :lang(), so mixed-language
+   fragments (e.g. <span lang="ar"> on an English page) get the right face. */
+@theme inline {
+  --font-display: var(--app-font-display);
+  --font-body: var(--app-font-body);
+  --font-sans: var(--app-font-body);
+}
+
+/* Base rules live in the base layer so Tailwind utilities (leading-*, font-*)
+   can still override them on individual elements. */
+@layer base {
+  :root {
+    --app-font-display: var(--font-reem-kufi), var(--font-plex-arabic), sans-serif;
+    color-scheme: dark;
+  }
+
+  /* Set per language (not only on :root) so a lang="en" fragment inside an
+     Arabic page does not inherit the Arabic-first stack, and vice versa. */
+  :root,
+  :lang(en) {
+    --app-font-body: var(--font-plex-sans), var(--font-plex-arabic), system-ui, sans-serif;
+  }
+
+  :lang(ar) {
+    --app-font-body: var(--font-plex-arabic), var(--font-plex-sans), system-ui, sans-serif;
+  }
+
+  /* Re-resolve the body face wherever the language changes. */
+  html,
+  [lang] {
+    font-family: var(--app-font-body);
+  }
+
+  /* Page-level rhythm: Arabic needs more room between lines than Latin. */
+  html:lang(ar) {
+    line-height: 1.8;
+  }
+
+  html:lang(en) {
+    line-height: 1.6;
+  }
+
+  html {
+    /* Latin digits in both languages, always aligned. */
+    font-variant-numeric: tabular-nums;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-ink);
+  }
+}
+
+::selection {
+  background-color: color-mix(in oklab, var(--color-gold) 35%, transparent);
+  color: var(--color-marble);
+}
+
+/* Gold focus ring for every keyboard-focusable element. */
+:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

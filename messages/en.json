@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "title": "Sakinah — When should you visit the Haram?",
+    "description": "Sakinah reads a photo or clip of Masjid al-Haram, estimates how crowded it is now, and suggests the best time for your visit."
+  },
+  "a11y": {
+    "skipToContent": "Skip to content"
+  },
+  "header": {
+    "homeLink": "Sakinah, home",
+    "languageNav": "Language"
+  },
+  "home": {
+    "title": "Should I go now, or wait?",
+    "lead": "Sakinah reads a photo or clip of Masjid al-Haram, estimates how crowded it is right now, and suggests the best time for your visit."
+  },
+  "footer": {
+    "privacy": "We don’t keep your photos or videos. Only the analysis numbers are stored, to improve recommendations."
+  },
+  "notFound": {
+    "title": "This page doesn’t exist",
+    "body": "The link may have changed, or it was mistyped.",
+    "backHome": "Back to home"
+  }
+}

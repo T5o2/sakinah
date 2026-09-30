@@ -24,18 +24,19 @@
    can still override them on individual elements. */
 @layer base {
   :root {
-    --app-font-display: var(--font-reem-kufi), var(--font-plex-arabic), sans-serif;
     color-scheme: dark;
   }
 
   /* Set per language (not only on :root) so a lang="en" fragment inside an
-     Arabic page does not inherit the Arabic-first stack, and vice versa. */
+     Arabic page does not inherit the Arabic stacks, and vice versa. */
   :root,
   :lang(en) {
+    --app-font-display: var(--font-marcellus), var(--font-reem-kufi), serif;
     --app-font-body: var(--font-plex-sans), var(--font-plex-arabic), system-ui, sans-serif;
   }
 
   :lang(ar) {
+    --app-font-display: var(--font-reem-kufi), var(--font-plex-arabic), sans-serif;
     --app-font-body: var(--font-plex-arabic), var(--font-plex-sans), system-ui, sans-serif;
   }
 

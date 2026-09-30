@@ -11,7 +11,7 @@ export default function HomePage({ params }: PageProps<"/[locale]">) {
 
   return (
     <section className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-5 py-16 sm:px-8 sm:py-24">
-      <div className="max-w-2xl">
+      <div className="max-w-3xl">
         <span aria-hidden="true" className="mb-8 block h-px w-16 bg-gold" />
         <h1 className="font-display text-4xl leading-snug text-balance text-marble sm:text-6xl">
           {t("title")}

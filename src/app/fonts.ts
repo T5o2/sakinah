@@ -1,9 +1,24 @@
-import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic, Reem_Kufi } from "next/font/google";
+import {
+  IBM_Plex_Sans,
+  IBM_Plex_Sans_Arabic,
+  Marcellus,
+  Reem_Kufi,
+} from "next/font/google";
 
-// Display: contemporary Kufi for headings in both languages (one identity).
+// Display (Arabic): contemporary Kufi. The Latin subset covers the Latin
+// digits that appear inside Arabic headings.
 export const reemKufi = Reem_Kufi({
   subsets: ["arabic", "latin"],
   variable: "--font-reem-kufi",
+  display: "swap",
+});
+
+// Display (English): carved-stone Roman capitals that sit well beside the Kufi.
+// Single weight only, so headings never rely on bold.
+export const marcellus = Marcellus({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-marcellus",
   display: "swap",
 });
 
@@ -22,6 +37,6 @@ export const plexSans = IBM_Plex_Sans({
   display: "swap",
 });
 
-export const fontVariables = [reemKufi, plexArabic, plexSans]
+export const fontVariables = [reemKufi, marcellus, plexArabic, plexSans]
   .map((font) => font.variable)
   .join(" ");

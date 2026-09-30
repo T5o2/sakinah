@@ -358,14 +358,6 @@ function drop(p: Painter, cx: number, cy: number, w: number, h: number) {
   p.disc(GOLD, cx, cy - h * 0.08, w * 0.06);
 }
 
-/** A long embroidered panel: gold frame on black, filled with the dense lattice. */
-function longPanel(p: Painter, x0: number, x1: number, y0: number, y1: number) {
-  p.rect(GOLD, x0, y0, x1, y1);
-  p.rect(GROUND, x0 + 0.05, y0 + 0.05, x1 - 0.05, y1 - 0.05);
-  p.frame(GOLD_SOFT, 0.02, x0 + 0.09, y0 + 0.09, x1 - 0.09, y1 - 0.09);
-  goldFill(p, x0 + 0.12, y0 + 0.12, x1 - 0.12, y1 - 0.12);
-}
-
 /**
  * The hizam: one continuous gold band round the whole Kaaba, divided into
  * panels by thin separators, each panel densely embroidered.
@@ -417,17 +409,18 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
 }
 
 /**
- * Black Stone corner: a roundel level with the panels, then a column of five
- * embroidered drops down to the white cloth.
+ * Black Stone corner: a column of embroidered drops on the corner edge
+ * itself, above the stone, headed by a roundel. Painted centred on the edge,
+ * so half of each shape falls on each of the two walls (`edgeX` is the
+ * corner's x on this wall).
  */
-function paintDropColumn(p: Painter) {
-  const cx = KAABA.dropColumnX;
-  roundel(p, cx, PANEL_CY, 0.26);
-  const top = PANEL_CY - 0.35;
+function paintDropColumn(p: Painter, edgeX: number) {
+  roundel(p, edgeX, PANEL_CY, 0.3);
+  const top = PANEL_CY - 0.4;
   const bottom = KAABA.whiteClothTop + 0.1;
   const step = (top - bottom) / 5;
   for (let i = 0; i < 5; i++) {
-    drop(p, cx, top - (i + 0.5) * step, 0.4, step * 0.86);
+    drop(p, edgeX, top - (i + 0.5) * step, 0.55, step * 0.86);
   }
 }
 
@@ -509,10 +502,34 @@ function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
   });
 }
 
+/** A curtain register: gold frame, deep-gold ground, dense gold lattice. */
+function sitaraPanel(
+  p: Painter,
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
+) {
+  p.rect(GOLD_SOFT, x0, y0, x1, y1);
+  p.rect(GOLD_DEEP, x0 + 0.04, y0 + 0.04, x1 - 0.04, y1 - 0.04);
+  goldFill(p, x0 + 0.07, y0 + 0.07, x1 - 0.07, y1 - 0.07);
+}
+
+/** A curtain roundel: gold throughout, a deep-gold ring and a rosette. */
+function sitaraRoundel(p: Painter, cx: number, cy: number, r: number) {
+  p.disc(GOLD_SOFT, cx, cy, r);
+  p.disc(GOLD_DEEP, cx, cy, r - 0.04);
+  p.rosette(GOLD, cx, cy, r * 0.85, 12);
+  p.ring(GOLD_SOFT, r * 0.06, cx, cy, r * 0.45);
+  p.disc(GOLD_SOFT, cx, cy, r * 0.14);
+}
+
 /**
- * The door curtain (sitara): black cloth embroidered in gold — a bordered
- * field of framed registers and panels, open at the hem in an inverted V over
- * its lower third (the V itself is cut in the geometry).
+ * The door curtain (sitara): embroidered almost entirely in gold, as on the
+ * real curtain — bordered registers of gold panels and roundels, one dark
+ * cartouche at its heart for contrast, and legs of stacked panels either side
+ * of the inverted-V opening over its lower third (the V is cut in the
+ * geometry). A black gap separates its top from the belt.
  */
 function paintSitara(p: Painter) {
   const cx = DOOR_X;
@@ -521,44 +538,73 @@ function paintSitara(p: Painter) {
   const y0 = SITARA_HEM;
   const y1 = SITARA_TOP;
 
-  p.rect(GROUND, x0, y0, x1, y1);
-  p.frame(GOLD, 0.12, x0, y0, x1, y1);
-  p.frame(GOLD_SOFT, 0.015, x0 + 0.16, y0 + 0.16, x1 - 0.16, y1 - 0.16);
-  for (let y = y0 + 0.45; y < y1 - 0.3; y += 0.55) {
-    drop(p, x0 + 0.3, y, 0.16, 0.3);
-    drop(p, x1 - 0.3, y, 0.16, 0.3);
+  // Gold field with a border of small roundels.
+  p.rect(GOLD, x0, y0, x1, y1);
+  p.frame(GOLD_SOFT, 0.05, x0, y0, x1, y1);
+  p.frame(GOLD_DEEP, 0.02, x0 + 0.34, y0 + 0.34, x1 - 0.34, y1 - 0.34);
+  for (let y = y0 + 0.3; y < y1 - 0.15; y += 0.42) {
+    sitaraRoundel(p, x0 + 0.17, y, 0.12);
+    sitaraRoundel(p, x1 - 0.17, y, 0.12);
+  }
+  for (let x = x0 + 0.55; x < x1 - 0.4; x += 0.42) {
+    sitaraRoundel(p, x, y1 - 0.17, 0.12);
   }
 
-  const ix0 = x0 + 0.5;
-  const ix1 = x1 - 0.5;
-  // Registers from the top: a long panel, three framed rosettes, the great
-  // panel, and a narrower band.
-  longPanel(p, ix0, ix1, y1 - 0.75, y1 - 0.24);
-  const r2 = y1 - 1.4;
-  p.frame(GOLD, 0.04, ix0, r2 - 0.45, ix1, r2 + 0.45);
-  for (const k of [-1, 0, 1]) roundel(p, cx + k * ((ix1 - ix0) / 3), r2, 0.3);
-  longPanel(p, ix0, ix1, r2 - 1.45, r2 - 0.6);
-  const r4 = r2 - 1.8;
-  longPanel(p, ix0, ix1, r4 - 0.2, r4 + 0.2);
+  const ix0 = x0 + 0.4;
+  const ix1 = x1 - 0.4;
+  // Registers from the top.
+  sitaraPanel(p, ix0, ix1, y1 - 0.85, y1 - 0.38);
+  const r2 = y1 - 1.35;
+  sitaraPanel(p, ix0, ix1, r2 - 0.42, r2 + 0.42);
+  for (const k of [-1, 0, 1])
+    sitaraRoundel(p, cx + k * ((ix1 - ix0) / 3), r2, 0.32);
+  // The dark cartouche at the heart (where the real curtain's main panel is).
+  const cy = r2 - 1.05;
+  const ch = 0.5;
+  p.with(GOLD_SOFT, (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(ix0, cy);
+    ctx.lineTo(ix0 + ch, cy + ch);
+    ctx.lineTo(ix1 - ch, cy + ch);
+    ctx.lineTo(ix1, cy);
+    ctx.lineTo(ix1 - ch, cy - ch);
+    ctx.lineTo(ix0 + ch, cy - ch);
+    ctx.closePath();
+    ctx.fill();
+  });
+  p.with(GROUND, (ctx) => {
+    const k = 0.07;
+    ctx.beginPath();
+    ctx.moveTo(ix0 + k * 1.4, cy);
+    ctx.lineTo(ix0 + ch + k * 0.4, cy + ch - k);
+    ctx.lineTo(ix1 - ch - k * 0.4, cy + ch - k);
+    ctx.lineTo(ix1 - k * 1.4, cy);
+    ctx.lineTo(ix1 - ch - k * 0.4, cy - ch + k);
+    ctx.lineTo(ix0 + ch + k * 0.4, cy - ch + k);
+    ctx.closePath();
+    ctx.fill();
+  });
+  goldFill(p, ix0 + ch, cy - ch + 0.12, ix1 - ch, cy + ch - 0.12);
+  // A band below it, then the top of the legs.
+  const r4 = cy - ch - 0.35;
+  sitaraPanel(p, ix0, ix1, r4 - 0.2, r4 + 0.2);
+  const midTop = r4 - 0.3;
+  const midBottom = SITARA_APEX + 0.1;
+  if (midTop - midBottom > 0.3) sitaraPanel(p, ix0, ix1, midBottom, midTop);
 
-  // Between the band and the apex of the opening: one more panel.
-  const midTop = r4 - 0.35;
-  const midBottom = SITARA_APEX + 0.2;
-  if (midTop - midBottom > 0.35) longPanel(p, ix0, ix1, midBottom, midTop);
-
-  // The two legs either side of the opening: stacked panels down to the hem.
-  const legW = (x1 - x0 - KAABA.door.width) / 2 - 0.35;
-  for (const lx of [x0 + 0.25 + legW / 2, x1 - 0.25 - legW / 2]) {
-    let y = SITARA_APEX + 0.05;
-    roundel(p, lx, y - 0.35, Math.min(0.3, legW / 2));
-    y -= 0.8;
-    while (y - 0.45 > y0 + 0.18) {
-      longPanel(p, lx - legW / 2, lx + legW / 2, y - 0.45, y);
-      y -= 0.6;
+  // The legs either side of the opening: a roundel, then stacked panels.
+  const legW = (x1 - x0 - KAABA.door.width) / 2 - 0.45;
+  for (const lx of [x0 + 0.37 + legW / 2, x1 - 0.37 - legW / 2]) {
+    let y = SITARA_APEX - 0.05;
+    sitaraRoundel(p, lx, y - 0.32, Math.min(0.3, legW / 2));
+    y -= 0.72;
+    while (y - 0.42 > y0 + 0.36) {
+      sitaraPanel(p, lx - legW / 2, lx + legW / 2, y - 0.42, y);
+      y -= 0.52;
     }
   }
   // Gold hem along both edges of the opening.
-  p.with(GOLD, (ctx) => {
+  p.with(GOLD_SOFT, (ctx) => {
     ctx.lineWidth = 0.1;
     ctx.beginPath();
     ctx.moveTo(cx - KAABA.door.width / 2, y0);
@@ -646,9 +692,9 @@ function paintWall(p: Painter, wall: Wall) {
 
   switch (wall.id) {
     case "door":
-      // Black Stone corner on the left: the drop column; the curtain; then
-      // panels and drops towards the Iraqi corner.
-      paintDropColumn(p);
+      // Black Stone corner on the left: its half of the drop column; the
+      // curtain; then panels and drops towards the Iraqi corner.
+      paintDropColumn(p, 0);
       belowBelt(p, panelsAndDrops(SITARA_X1 + 0.5, L - 0.55, 2, 2.3));
       paintSitara(p);
       paintDoor(p);
@@ -663,10 +709,12 @@ function paintWall(p: Painter, wall: Wall) {
       paintYemeniArch(p, L, -1);
       break;
     case "southEast":
-      // Yemeni corner at the left end; Black Stone corner at the right.
-      belowBelt(p, panelsAndDrops(0.9, L - 0.6, 2, 2.6));
+      // Yemeni corner at the left end; Black Stone corner at the right, with
+      // the other half of its drop column.
+      belowBelt(p, panelsAndDrops(0.9, L - 1.0, 2, 2.5));
       paintYemeniBand(p, 0, 1);
       paintYemeniArch(p, 0, 1);
+      paintDropColumn(p, L);
       break;
   }
 }

@@ -69,9 +69,9 @@ export const TAWAF = {
 export const CAMERA = {
   fov: 32,
   /** Aimed above the Kaaba so it sits below the hero text. */
-  target: [0, 9.8, 0] as [number, number, number],
+  target: [0, 9, 0] as [number, number, number],
   /** Distance from the target, metres. */
-  distance: 69,
+  distance: 78,
   /** Degrees above the horizon — an upper-floor view. */
   elevationDeg: 22,
   /** Bearing around the Kaaba; 0 faces the door wall (+Z). */

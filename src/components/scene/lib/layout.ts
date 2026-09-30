@@ -26,8 +26,8 @@ export const KAABA = {
   /** Parapet round the roof; the kiswa wraps over it (height and thickness). */
   rimHeight: 0.7,
   rimThickness: 0.55,
-  /** White box on the roof with ventilation slots, in the Iraqi (+X, +Z) corner. */
-  roofBox: { length: 2.6, depth: 1.0, height: 1.0 },
+  /** Flat hatch in the roof floor, in the Iraqi (+X, +Z) corner, barely raised. */
+  roofHatch: { length: 2.6, depth: 1.6, height: 0.05 },
   /** Kiswa belt (hizam): documented at two thirds of the height, about 0.95 m wide. */
   beltY: (14 * 2) / 3,
   beltHeight: 0.95,
@@ -66,11 +66,18 @@ export const KAABA = {
     hemAboveDoor: 0.2,
     standOff: 0.2,
     openingFraction: 1 / 3,
+    /** Black gap between the belt and the top of the curtain. */
+    gapBelowBelt: 0.4,
   },
-  /** Column of embroidered drops by the Black Stone corner, on the door wall. */
-  dropColumnX: 0.3,
   /** Black Stone: centre of the silver frame (documented 1.1–1.5 m). */
   blackStoneHeight: 1.4,
+  /**
+   * The rounded mass of dark stone the frame is set into, bulging out of the
+   * east corner (radius, how far its axis sits inside the corner, height span).
+   */
+  blackStoneBoss: { radius: 0.5, inset: 0.22, bottom: 0.75, top: 2.05 },
+  /** Upright white marble block beside the Black Stone, against the door wall. */
+  marbleBlock: { from: 0.5, width: 0.5, depth: 0.55, height: 1.15, cap: 0.1 },
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;

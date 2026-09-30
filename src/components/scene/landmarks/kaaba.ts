@@ -9,7 +9,9 @@ import {
   Path,
   Quaternion,
   Shape,
+  LatheGeometry,
   TorusGeometry,
+  Vector2,
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -22,9 +24,9 @@ import { part, type Part } from "../lib/parts";
  * - one kiswa mesh: the four walls (floor to parapet top), the raised belt,
  *   the raised door, the raised curtain and the cloth wrapped over the
  *   parapet, all sampling one painted atlas (see kiswaAtlas.ts);
- * - small solid parts (shadharwan and its rings, parapet, roof, roof box,
- *   ropes and rod, Black Stone frame, mizab) merged with the other landmarks
- *   by material.
+ * - small solid parts (shadharwan and its rings, parapet, roof, roof hatch,
+ *   Black Stone boss and frame, marble block, mizab) merged with the other
+ *   landmarks by material.
  */
 
 export type WallId = "door" | "hijr" | "southWest" | "southEast";
@@ -50,7 +52,7 @@ export const KISWA_Y1 = KAABA.height;
 
 export const BELT_BOTTOM = KAABA.beltY - KAABA.beltHeight / 2;
 export const BELT_TOP = KAABA.beltY + KAABA.beltHeight / 2;
-export const SITARA_TOP = BELT_BOTTOM - 0.05;
+export const SITARA_TOP = BELT_BOTTOM - KAABA.sitara.gapBelowBelt;
 export const SITARA_HEM = KAABA.door.bottom + KAABA.sitara.hemAboveDoor;
 /** Apex of the inverted V at the curtain's hem. */
 export const SITARA_APEX =
@@ -240,14 +242,14 @@ export function createKiswaGeometry(): BufferGeometry {
       ),
     );
 
-    // Kiswa cloth over the parapet: across its top and a short fold down its inner face.
+    // Kiswa cloth over the parapet top. It sits clear above the parapet and
+    // stops short of its inner face, so no two surfaces share a plane (that
+    // z-fighting is what made the rim shimmer while orbiting).
     const fabric = atlasUv(wall, L / 2, KISWA_Y1 - 0.25);
-    const top = new BoxGeometry(L + 0.06, 0.02, t + 0.06);
-    top.translate(L / 2, KISWA_Y1 + 0.01, 0.03 - (t + 0.06) / 2);
+    const capDepth = t - 0.02;
+    const top = new BoxGeometry(L + 0.06, 0.05, capDepth + 0.03);
+    top.translate(L / 2, KISWA_Y1 + 0.025, 0.03 - (capDepth + 0.03) / 2);
     pieces.push(solidUv(onWall(wall, top), fabric));
-    const fold = new BoxGeometry(L - 2 * t, 0.3, 0.02);
-    fold.translate(L / 2, KISWA_Y1 - 0.15, -t - 0.02);
-    pieces.push(solidUv(onWall(wall, fold), fabric));
   }
 
   // The gold door and, in front of it, the curtain with its inverted-V opening.
@@ -335,8 +337,29 @@ function tieRings(wall: Wall, x0: number, x1: number, step = 1.4): Part[] {
   return rings;
 }
 
-/** The Black Stone's silver frame: rounded above, pointed below, open in the middle. */
-function blackStoneFrame(): { frame: Part; stone: Part } {
+/**
+ * The Black Stone: a rounded mass of dark stone bulging out of the east
+ * corner, with the silver frame — rounded above, pointed below, open in the
+ * middle — curved round it so it sits on the stone instead of floating.
+ */
+function blackStone(): { frame: Part; stone: Part; boss: Part } {
+  const { radius: R, inset, bottom, top } = KAABA.blackStoneBoss;
+  const out = new Vector3(-1, 0, 1).normalize();
+  const axis = new Vector3(-HALF_X, 0, HALF_Z).addScaledVector(out, -inset);
+
+  // Boss: a lathe with rounded ends.
+  const e = 0.18;
+  const profile = [
+    new Vector2(0, bottom),
+    new Vector2(R * 0.7, bottom + 0.02),
+    new Vector2(R, bottom + e),
+    new Vector2(R, top - e),
+    new Vector2(R * 0.7, top - 0.02),
+    new Vector2(0, top),
+  ];
+  const boss = new LatheGeometry(profile, 28);
+  boss.translate(axis.x, 0, axis.z);
+
   const w = 0.38;
   const outline = new Shape();
   outline.moveTo(0, -0.52);
@@ -347,25 +370,49 @@ function blackStoneFrame(): { frame: Part; stone: Part } {
   hole.absarc(0, 0.04, 0.15, 0, Math.PI * 2, true);
   outline.holes.push(hole);
   const frame = new ExtrudeGeometry(outline, {
-    depth: 0.06,
+    depth: 0.05,
     bevelEnabled: true,
-    bevelThickness: 0.04,
+    bevelThickness: 0.03,
     bevelSize: 0.035,
     bevelSegments: 3,
     curveSegments: 18,
   });
+  frame.translate(0, 0, 0.03);
   const stone = new CircleGeometry(0.15, 20);
-  stone.translate(0, 0.04, -0.03);
+  stone.translate(0, 0.04, 0.02);
 
-  // Set into the east corner, facing outwards along the diagonal.
-  const place = new Matrix4()
-    .makeRotationY(-Math.PI / 4)
-    .setPosition(-HALF_X - 0.12, KAABA.blackStoneHeight, HALF_Z + 0.12);
-  frame.applyMatrix4(place);
-  stone.applyMatrix4(place);
+  // Wrap both round the boss: x along the surface becomes an angle, z is height off it.
+  const wrap = (g: BufferGeometry) => {
+    const pos = g.getAttribute("position");
+    const nrm = g.getAttribute("normal");
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const th = x / R;
+      const c = Math.cos(th);
+      const sn = Math.sin(th);
+      pos.setXYZ(i, (R + z) * sn, pos.getY(i), (R + z) * c);
+      // Bending is a rotation by th about y at each point: turn the normal
+      // with it, keeping the faces smooth instead of re-deriving facets.
+      const nx = nrm.getX(i);
+      const nz = nrm.getZ(i);
+      nrm.setXYZ(i, nx * c + nz * sn, nrm.getY(i), -nx * sn + nz * c);
+    }
+    pos.needsUpdate = true;
+    nrm.needsUpdate = true;
+    // Local +Z (the outward diagonal) → world `out`; origin → boss axis.
+    g.applyMatrix4(
+      new Matrix4()
+        .makeRotationY(-Math.PI / 4)
+        .setPosition(axis.x, KAABA.blackStoneHeight, axis.z),
+    );
+    return g;
+  };
+
   return {
-    frame: { geometry: frame, color: PALETTE.silver },
-    stone: { geometry: stone, color: PALETTE.blackStone },
+    frame: { geometry: wrap(frame), color: PALETTE.silver },
+    stone: { geometry: wrap(stone), color: PALETTE.blackStone },
+    boss: { geometry: boss, color: PALETTE.stoneBoss },
   };
 }
 
@@ -375,14 +422,14 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
   /** Polished silver has its own brighter material (see HaramLandmarks). */
   const silver: Part[] = [];
 
-  // Shadharwan: along the door wall either side of the door, and along the two
-  // southern walls; none on the Hijr side and none under the door.
+  // Shadharwan: along the two southern walls and along the door wall after
+  // the door. None on the Hijr side, and none from the marble block beside the
+  // Black Stone to the far edge of the door: there the wall stones run down
+  // to the floor.
   const doorWall = wallById("door");
   const { door, baseOutset: o } = KAABA;
-  const doorX0 = door.fromBlackStoneCorner - door.width / 2 - 0.15;
-  const doorX1 = door.fromBlackStoneCorner + door.width / 2 + 0.15;
+  const doorX1 = door.fromBlackStoneCorner + door.width / 2;
   const segments: [Wall, number, number][] = [
-    [doorWall, 0, doorX0],
     [doorWall, doorX1, doorWall.length],
     [wallById("southWest"), 0, KAABA.sizeX],
     [wallById("southEast"), 0, KAABA.sizeZ],
@@ -393,9 +440,9 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
       ...tieRings(wall, Math.max(x0, 0.3), Math.min(x1, wall.length - 0.3)),
     );
   }
-  // Convex hip where two runs meet (Black Stone and Yemeni corners): a square
-  // frustum whose faces share the runs' slope.
-  for (const z of [HALF_Z, -HALF_Z]) {
+  // Convex hip where two runs meet at the Yemeni corner: a square frustum
+  // whose faces share the runs' slope.
+  for (const z of [-HALF_Z]) {
     matte.push(
       part(
         new CylinderGeometry(
@@ -445,81 +492,49 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
     ),
   );
 
-  // White box with ventilation slots, in the Iraqi corner of the roof.
-  const box = KAABA.roofBox;
-  const bx = HALF_X - t - box.depth / 2 - 0.1;
-  const bz = HALF_Z - t - box.length / 2 - 0.1;
-  const by = roofY + 0.1 + box.height / 2;
+  // Flat hatch in the Iraqi corner of the roof, barely raised: a pale frame
+  // with two panes.
+  const hatch = KAABA.roofHatch;
+  const hx = HALF_X - t - hatch.depth / 2 - 0.1;
+  const hz = HALF_Z - t - hatch.length / 2 - 0.1;
+  const hy = roofY + 0.1 + hatch.height / 2;
   matte.push(
-    part(new BoxGeometry(box.depth, box.height, box.length), PALETTE.roofBox, {
-      position: [bx, by, bz],
-    }),
+    part(
+      new BoxGeometry(hatch.depth, hatch.height, hatch.length),
+      PALETTE.roofBox,
+      {
+        position: [hx, hy, hz],
+      },
+    ),
   );
-  // Three panels on the face looking into the roof, each with slots and a seam.
-  const faceX = bx - box.depth / 2 - 0.005;
-  for (let k = 0; k < 3; k++) {
-    const z = bz - box.length / 2 + ((k + 0.5) * box.length) / 3;
-    for (let s = 0; s < 3; s++) {
-      matte.push(
-        part(new BoxGeometry(0.02, 0.03, 0.42), PALETTE.vent, {
-          position: [faceX, by - 0.35 + s * 0.08, z],
-        }),
-      );
-    }
-    if (k < 2) {
-      matte.push(
-        part(new BoxGeometry(0.02, box.height - 0.12, 0.015), PALETTE.vent, {
-          position: [faceX, by, z + box.length / 6],
-        }),
-      );
-    }
+  for (const dz of [-hatch.length / 4, hatch.length / 4]) {
+    matte.push(
+      part(
+        new BoxGeometry(hatch.depth - 0.2, 0.02, hatch.length / 2 - 0.2),
+        PALETTE.roof,
+        { position: [hx, hy + hatch.height / 2 + 0.005, hz + dz] },
+      ),
+    );
   }
 
-  // Light ropes from the kiswa's fold down to a metal rod along each side.
-  const rodInset = t + 0.2;
-  const rodY = roofY + r * 0.45;
-  const sides = [
-    { alongX: true, sign: 1, len: KAABA.sizeX, half: HALF_Z },
-    { alongX: true, sign: -1, len: KAABA.sizeX, half: HALF_Z },
-    { alongX: false, sign: 1, len: KAABA.sizeZ, half: HALF_X },
-    { alongX: false, sign: -1, len: KAABA.sizeZ, half: HALF_X },
-  ];
-  for (const { alongX, sign, len, half } of sides) {
-    const span = len - 2 * rodInset - 0.4;
-    const edge = sign * (half - t - 0.03);
-    const rodAt = sign * (half - rodInset);
-    const at = (a: number, y: number, d: number) =>
-      alongX ? new Vector3(a, y, d) : new Vector3(d, y, a);
-
-    const rod = new CylinderGeometry(0.025, 0.025, span, 6);
-    rod.rotateZ(Math.PI / 2);
-    if (!alongX) rod.rotateY(Math.PI / 2);
-    const rp = at(0, rodY, rodAt);
-    silver.push(part(rod, PALETTE.silver, { position: [rp.x, rp.y, rp.z] }));
-
-    const count = Math.floor(span / 0.45);
-    for (let i = 0; i <= count; i++) {
-      const a = -span / 2 + (i * span) / count;
-      const top = at(a, KAABA.height - 0.28, edge);
-      const bottom = at(a, rodY, rodAt);
-      const d = bottom.clone().sub(top);
-      const rope = new CylinderGeometry(0.018, 0.018, d.length(), 5);
-      rope.applyQuaternion(
-        new Quaternion().setFromUnitVectors(
-          new Vector3(0, 1, 0),
-          d.clone().normalize(),
-        ),
-      );
-      const mid = top.clone().add(bottom).multiplyScalar(0.5);
-      rope.translate(mid.x, mid.y, mid.z);
-      matte.push({ geometry: rope, color: PALETTE.rope });
-    }
-  }
-
-  // Black Stone: silver frame with the stone showing through its opening.
-  const bs = blackStoneFrame();
+  // Black Stone: the stone boss, the silver frame round it, the stone within.
+  const bs = blackStone();
   silver.push(bs.frame);
-  matte.push(bs.stone);
+  matte.push(bs.stone, bs.boss);
+
+  // Upright white marble block beside the Black Stone, against the door wall.
+  const mb = KAABA.marbleBlock;
+  const mbX = -HALF_X + mb.from + mb.width / 2;
+  matte.push(
+    part(new BoxGeometry(mb.width, mb.height, mb.depth), PALETTE.marble, {
+      position: [mbX, mb.height / 2, HALF_Z + mb.depth / 2],
+    }),
+    part(
+      new BoxGeometry(mb.width + 0.06, mb.cap, mb.depth + 0.06),
+      PALETTE.marbleCap,
+      { position: [mbX, mb.height + mb.cap / 2, HALF_Z + mb.depth / 2] },
+    ),
+  );
 
   // Mizab: gold waterspout over Hijr Ismail, leaving the roof through the parapet.
   const mizabX = HALF_X + 0.45;

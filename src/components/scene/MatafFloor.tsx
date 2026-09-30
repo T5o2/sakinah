@@ -12,7 +12,7 @@ export function MatafFloor({ textureSize }: { textureSize: number }) {
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]}>
       <circleGeometry args={[MATAF.radius, 96]} />
-      <meshStandardMaterial map={texture} roughness={0.32} metalness={0} />
+      <meshStandardMaterial map={texture} roughness={0.5} metalness={0} />
     </mesh>
   );
 }

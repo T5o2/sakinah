@@ -25,7 +25,12 @@ function toTexture(canvas: HTMLCanvasElement): CanvasTexture {
 }
 
 /** Eight-point star (two overlapping squares) centred on (cx, cy). */
-function eightPointStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+export function eightPointStar(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+) {
   for (const turn of [0, Math.PI / 4]) {
     ctx.beginPath();
     for (let i = 0; i < 4; i++) {
@@ -41,75 +46,74 @@ function eightPointStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r
 }
 
 /**
- * Kiswa belt (hizam): one horizontal tile of a geometric frieze.
- * The tile is 8:1, so a 0.95 m band repeats roughly every 7.6 m.
+ * One glass panel of the Maqam's hexagonal cage (repeated six times round it):
+ * a gold frame and pointed arch over clear glass, with an interlaced star
+ * lattice inside the arch and a finer lattice in the spandrels.
  */
-export function createBeltTexture(): CanvasTexture {
-  const w = 1024;
-  const h = 128;
-  const { canvas, ctx } = createCanvas(w, h);
-
-  ctx.fillStyle = PALETTE.goldDeep;
-  ctx.fillRect(0, 0, w, h);
-
-  // Framing rules along both edges.
-  ctx.fillStyle = PALETTE.goldSoft;
-  ctx.fillRect(0, 8, w, 5);
-  ctx.fillRect(0, h - 13, w, 5);
-  ctx.fillStyle = PALETTE.gold;
-  ctx.fillRect(0, 18, w, 2);
-  ctx.fillRect(0, h - 20, w, 2);
-
-  // Stars in cartouches, with small rosettes between them.
-  ctx.lineWidth = 4;
-  const step = 128;
-  for (let x = step / 2; x < w; x += step) {
-    ctx.strokeStyle = PALETTE.goldSoft;
-    eightPointStar(ctx, x, h / 2, 34);
-    ctx.strokeStyle = PALETTE.gold;
-    ctx.strokeRect(x - 52, 28, 104, h - 56);
-    ctx.fillStyle = PALETTE.goldSoft;
-    ctx.beginPath();
-    ctx.arc(x + step / 2, h / 2, 6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  const texture = toTexture(canvas);
-  texture.wrapS = RepeatWrapping;
-  return texture;
-}
-
-/** Door leaf: a grid of raised panels, each with a geometric star. */
-export function createDoorTexture(): CanvasTexture {
+export function createMaqamLatticeTexture(): CanvasTexture {
   const w = 256;
   const h = 512;
   const { canvas, ctx } = createCanvas(w, h);
-
-  ctx.fillStyle = PALETTE.gold;
+  ctx.fillStyle = "rgba(250, 232, 190, 0.14)";
   ctx.fillRect(0, 0, w, h);
-  ctx.strokeStyle = PALETTE.goldDeep;
-  ctx.lineWidth = 10;
-  ctx.strokeRect(8, 8, w - 16, h - 16);
-  // Split between the two leaves.
-  ctx.fillStyle = PALETTE.goldDeep;
-  ctx.fillRect(w / 2 - 3, 8, 6, h - 16);
 
-  ctx.lineWidth = 4;
-  const cols = 2;
-  const rows = 4;
-  const cellW = (w - 40) / cols;
-  const cellH = (h - 40) / rows;
-  for (let c = 0; c < cols; c++) {
-    for (let r = 0; r < rows; r++) {
-      const x = 20 + c * cellW;
-      const y = 20 + r * cellH;
-      ctx.strokeStyle = PALETTE.goldDeep;
-      ctx.strokeRect(x + 8, y + 8, cellW - 16, cellH - 16);
-      ctx.strokeStyle = PALETTE.goldSoft;
-      eightPointStar(ctx, x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.28);
+  const arch = new Path2D();
+  arch.moveTo(40, h - 30);
+  arch.lineTo(40, 190);
+  arch.quadraticCurveTo(40, 90, w / 2, 56);
+  arch.quadraticCurveTo(w - 40, 90, w - 40, 190);
+  arch.lineTo(w - 40, h - 30);
+  arch.closePath();
+
+  ctx.strokeStyle = PALETTE.gold;
+  ctx.fillStyle = PALETTE.gold;
+
+  // Spandrels: fine ring lattice between the frame and the arch.
+  ctx.save();
+  const outside = new Path2D();
+  outside.rect(0, 0, w, h);
+  outside.addPath(arch);
+  ctx.clip(outside, "evenodd");
+  ctx.lineWidth = 2;
+  for (let y = 12; y < h; y += 22) {
+    for (let x = 12; x < w; x += 22) {
+      ctx.beginPath();
+      ctx.arc(x, y, 9, 0, Math.PI * 2);
+      ctx.stroke();
     }
   }
-  return toTexture(canvas);
+  ctx.restore();
+
+  // Inside the arch: interlaced stars joined by a diagonal grid.
+  ctx.save();
+  ctx.clip(arch);
+  ctx.lineWidth = 3;
+  const step = 44;
+  for (let y = 70; y < h; y += step) {
+    for (let x = w / 2 - step * 2; x <= w / 2 + step * 2; x += step) {
+      eightPointStar(ctx, x, y, 15);
+    }
+  }
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (let k = -12; k < 24; k++) {
+    ctx.moveTo(k * step, 0);
+    ctx.lineTo(k * step + h, h);
+    ctx.moveTo(k * step + h, 0);
+    ctx.lineTo(k * step, h);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.lineWidth = 8;
+  ctx.stroke(arch);
+  ctx.lineWidth = 16;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
+
+  const texture = toTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  texture.repeat.set(6, 1);
+  return texture;
 }
 
 /**

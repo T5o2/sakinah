@@ -1,11 +1,14 @@
 "use client";
 
 import { useFrame, useThree } from "@react-three/fiber";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { Fog, Vector3 } from "three";
-import { CAMERA } from "@/lib/config/scene";
+import { CAMERA, ORBIT } from "@/lib/config/scene";
+import type { OrbitState } from "./lib/orbitGesture";
 
 const DEG = Math.PI / 180;
+/** Sway fades out quickly when a drag starts, and back in slowly after idle. */
+const SWAY_FADE_OUT_SEC = 0.3;
 
 /**
  * Portrait screens see less sideways and stack the text above the scene, so
@@ -13,22 +16,58 @@ const DEG = Math.PI / 180;
  */
 function framingForAspect(aspect: number) {
   const portrait = Math.max(0, 1 - aspect);
-  return { distance: CAMERA.distance * (1 + portrait * 1.1), lift: portrait * 14 };
+  return {
+    distance: CAMERA.distance * (1 + portrait * 1.1),
+    lift: portrait * 14,
+  };
 }
 
 /**
- * Upper-floor view of the Kaaba with a very slow side-to-side drift.
+ * Upper-floor view of the Kaaba. Eases towards the angle the user drags to;
+ * when left alone for a few seconds, a very slow sway fades back in.
  * Same in both languages: the scene is a place, not a reading direction.
  */
-export function CameraRig({ still }: { still: boolean }) {
+export function CameraRig({
+  orbit,
+  still,
+}: {
+  orbit: OrbitState;
+  still: boolean;
+}) {
   const aspect = useThree((s) => s.size.width / s.size.height);
   const target = useMemo(() => new Vector3(), []);
+  const view = useRef({
+    azimuth: orbit.azimuthDeg,
+    elevation: orbit.elevationDeg,
+    swayWeight: still ? 0 : 1,
+    /** Sway phase only advances while swaying, so it resumes where it paused. */
+    swayTime: 0,
+  });
 
-  useFrame(({ camera, clock, scene }) => {
-    const t = still ? 0 : clock.getElapsedTime();
-    const sway = CAMERA.swayDeg * Math.sin((2 * Math.PI * t) / CAMERA.swayPeriodSec);
-    const azimuth = (CAMERA.azimuthDeg + sway) * DEG;
-    const elevation = CAMERA.elevationDeg * DEG;
+  useFrame(({ camera, scene, invalidate }, delta) => {
+    const v = view.current;
+    const dt = Math.min(delta, 0.1);
+
+    const ease = 1 - Math.exp(-ORBIT.damping * dt);
+    v.azimuth += (orbit.azimuthDeg - v.azimuth) * ease;
+    v.elevation += (orbit.elevationDeg - v.elevation) * ease;
+
+    const idle =
+      !orbit.dragging &&
+      performance.now() - orbit.lastInteraction > ORBIT.idleResumeMs;
+    if (still || !idle) {
+      v.swayWeight = Math.max(0, v.swayWeight - dt / SWAY_FADE_OUT_SEC);
+    } else {
+      v.swayWeight = Math.min(1, v.swayWeight + dt / ORBIT.swayBlendSec);
+    }
+    v.swayTime += dt * v.swayWeight;
+    const sway =
+      CAMERA.swayDeg *
+      Math.sin((2 * Math.PI * v.swayTime) / CAMERA.swayPeriodSec) *
+      v.swayWeight;
+
+    const azimuth = (v.azimuth + sway) * DEG;
+    const elevation = v.elevation * DEG;
     const { distance: d, lift } = framingForAspect(aspect);
     target.set(CAMERA.target[0], CAMERA.target[1] + lift, CAMERA.target[2]);
 
@@ -45,6 +84,12 @@ export function CameraRig({ still }: { still: boolean }) {
       scene.fog.near = d - 8;
       scene.fog.far = d + 72;
     }
+
+    // On-demand rendering (reduced motion): keep drawing until the ease settles.
+    const settling =
+      Math.abs(orbit.azimuthDeg - v.azimuth) > 0.01 ||
+      Math.abs(orbit.elevationDeg - v.elevation) > 0.01;
+    if (settling) invalidate();
   });
 
   return null;

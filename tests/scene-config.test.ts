@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { detectDeviceTier, lowerTier } from "../src/components/scene/lib/deviceTier";
-import { INTRO, TIER_SETTINGS, TRANSITION, WALKER_MIX } from "../src/lib/config/scene";
+import {
+  detectDeviceTier,
+  lowerTier,
+} from "../src/components/scene/lib/deviceTier";
+import {
+  INTRO,
+  TIER_SETTINGS,
+  TRANSITION,
+  WALKER_MIX,
+} from "../src/lib/config/scene";
 
 describe("scene config", () => {
   it("walker mix sums to 1", () => {
@@ -29,14 +37,21 @@ describe("scene config", () => {
 });
 
 describe("device tier", () => {
-  const desktop = { cores: 8, memoryGb: 8, coarsePointer: false, viewportWidth: 1440 };
+  const desktop = {
+    cores: 8,
+    memoryGb: 8,
+    coarsePointer: false,
+    viewportWidth: 1440,
+  };
 
   it("starts capable desktops on high", () => {
     expect(detectDeviceTier(desktop)).toBe("high");
   });
 
   it("starts phones on medium", () => {
-    expect(detectDeviceTier({ ...desktop, coarsePointer: true, viewportWidth: 390 })).toBe("medium");
+    expect(
+      detectDeviceTier({ ...desktop, coarsePointer: true, viewportWidth: 390 }),
+    ).toBe("medium");
   });
 
   it("starts weak devices on low", () => {

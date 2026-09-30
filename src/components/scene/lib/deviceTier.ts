@@ -15,10 +15,17 @@ export interface DeviceSignals {
  */
 export function detectDeviceTier(signals: DeviceSignals): DeviceTier {
   const { cores, memoryGb, coarsePointer, viewportWidth } = signals;
-  if ((memoryGb !== undefined && memoryGb <= 2) || (cores !== undefined && cores <= 2)) {
+  if (
+    (memoryGb !== undefined && memoryGb <= 2) ||
+    (cores !== undefined && cores <= 2)
+  ) {
     return "low";
   }
-  if (coarsePointer || viewportWidth < 768 || (cores !== undefined && cores <= 4)) {
+  if (
+    coarsePointer ||
+    viewportWidth < 768 ||
+    (cores !== undefined && cores <= 4)
+  ) {
     return "medium";
   }
   return "high";

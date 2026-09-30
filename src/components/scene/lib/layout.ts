@@ -19,9 +19,11 @@ export const KAABA = {
   /** Kiswa belt (hizam) — centre height and band height. */
   beltY: 9.1,
   beltHeight: 0.95,
-  /** Marble base (shadharwan) running around the foot of the walls. */
+  /** Marble base (shadharwan) running around the foot of the walls, sloped. */
   baseHeight: 0.3,
   baseOutset: 0.35,
+  /** Hajj season: the kiswa is raised and the lower walls wrapped in white cloth up to here. */
+  whiteClothTop: 2.0,
   door: { width: 1.9, height: 3.1, bottom: 2.2, fromBlackStoneCorner: 2.9 },
   blackStoneHeight: 1.5,
 } as const;
@@ -40,6 +42,8 @@ export const HIJR = {
   arcHalfAngleDeg: 76,
   thickness: 1.5,
   height: 1.3,
+  /** Three gold lamp posts along the wall, by angle on the arc. */
+  lampAnglesDeg: [-50, 0, 50],
 } as const;
 
 /** Maqam Ibrahim stands in front of the door wall. */

@@ -17,8 +17,8 @@ export interface TierSettings {
   antialias: boolean;
   /** Canvas-texture resolution for the mataf floor. */
   floorTextureSize: number;
-  /** Fabric sheen on the kiswa (MeshPhysicalMaterial) — high tier only. */
-  kiswaSheen: boolean;
+  /** Width of the kiswa atlas (door wall + other walls side by side, 2:1). */
+  kiswaAtlasWidth: number;
 }
 
 export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
@@ -28,7 +28,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     dpr: [1, 1.75],
     antialias: true,
     floorTextureSize: 1024,
-    kiswaSheen: true,
+    kiswaAtlasWidth: 2048,
   },
   medium: {
     walkers: 300,
@@ -36,7 +36,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     dpr: [1, 1.5],
     antialias: true,
     floorTextureSize: 512,
-    kiswaSheen: false,
+    kiswaAtlasWidth: 1024,
   },
   low: {
     walkers: 120,
@@ -44,7 +44,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     dpr: [1, 1],
     antialias: false,
     floorTextureSize: 512,
-    kiswaSheen: false,
+    kiswaAtlasWidth: 1024,
   },
 };
 
@@ -79,6 +79,32 @@ export const CAMERA = {
   /** Gentle side-to-side drift of the idle orbit. */
   swayDeg: 7,
   swayPeriodSec: 48,
+};
+
+/** Drag-to-orbit (SPEC §3.3). A tap opens the transition; a drag only turns the view. */
+export const ORBIT = {
+  /** Degrees of orbit per CSS pixel dragged. */
+  degPerPx: 0.22,
+  /** Elevation limits for mouse drags; touch drags are horizontal only. */
+  elevationMinDeg: 12,
+  elevationMaxDeg: 40,
+  /** Exponential smoothing rate (1/s) towards the dragged angle. */
+  damping: 7,
+  /** A press that moves less than this and ends quickly is a tap. */
+  tapMaxMovePx: 6,
+  tapMaxMs: 450,
+  /** Idle time before the automatic sway returns, and how long it eases back in. */
+  idleResumeMs: 4000,
+  swayBlendSec: 2.5,
+};
+
+/** Performance budget for the whole scene (checked by tests and at runtime). */
+export const BUDGET = {
+  drawCalls: 30,
+  triangles: 150_000,
+  /** Static landmarks (Kaaba, Hijr, Maqam) — merged by material. */
+  landmarkDrawCalls: 6,
+  landmarkTriangles: 20_000,
 };
 
 export const INTRO = {

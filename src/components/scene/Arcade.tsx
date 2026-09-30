@@ -28,7 +28,11 @@ export function Arcade() {
     for (const tier of TIERS) {
       for (let c = 0; c < COLUMNS_PER_TIER; c++) {
         const a = (c / COLUMNS_PER_TIER) * Math.PI * 2;
-        dummy.position.set(r * Math.cos(a), tier.base + tier.height / 2, r * Math.sin(a));
+        dummy.position.set(
+          r * Math.cos(a),
+          tier.base + tier.height / 2,
+          r * Math.sin(a),
+        );
         dummy.rotation.set(0, -a, 0);
         dummy.scale.set(1, tier.height, 1);
         dummy.updateMatrix();
@@ -40,16 +44,28 @@ export function Arcade() {
 
   return (
     <group>
-      <instancedMesh ref={columns} args={[undefined, undefined, COLUMNS_PER_TIER * TIERS.length]}>
+      <instancedMesh
+        ref={columns}
+        args={[undefined, undefined, COLUMNS_PER_TIER * TIERS.length]}
+      >
         <boxGeometry args={[0.7, 1, 0.9]} />
-        <meshStandardMaterial color={PALETTE.stone} roughness={0.9} envMapIntensity={0} />
+        <meshStandardMaterial
+          color={PALETTE.stone}
+          roughness={0.9}
+          envMapIntensity={0}
+        />
       </instancedMesh>
 
       {/* Cornices above each tier. */}
       {TIERS.map((tier) => (
         <mesh key={tier.base} position={[0, tier.base + tier.height + 0.6, 0]}>
           <cylinderGeometry args={[r, r, 1.2, 96, 1, true]} />
-          <meshStandardMaterial color={PALETTE.stone} roughness={0.9} envMapIntensity={0} side={BackSide} />
+          <meshStandardMaterial
+            color={PALETTE.stone}
+            roughness={0.9}
+            envMapIntensity={0}
+            side={BackSide}
+          />
         </mesh>
       ))}
 

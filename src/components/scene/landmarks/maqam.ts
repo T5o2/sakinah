@@ -1,4 +1,5 @@
 import {
+  BoxGeometry,
   type BufferGeometry,
   CylinderGeometry,
   SphereGeometry,
@@ -24,7 +25,8 @@ const at = (x: number, y: number, z: number): [number, number, number] => [
 /**
  * Maqam Ibrahim: a hexagonal gold cage with latticed glass panels, a sloping
  * roof, a small glass dome and a crescent, on a white marble plinth with a
- * dark granite footing. The inner gold cover shows through the glass.
+ * dark granite footing. Through the glass: the stone bearing the two
+ * footprints, in a silver frame — kept simple and plain.
  */
 export function maqamParts(): { matte: Part[]; metal: Part[] } {
   const matte = [
@@ -37,26 +39,14 @@ export function maqamParts(): { matte: Part[]; metal: Part[] } {
   ];
 
   const metal: Part[] = [
-    // Inner gold cover over the stone, seen through the glass.
-    part(new CylinderGeometry(0.34, 0.36, 0.25, 12), PALETTE.gold, {
-      position: at(0, CAGE_BOTTOM + 0.12, 0),
-    }),
-    part(
-      new SphereGeometry(0.3, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2),
-      PALETTE.gold,
-      {
-        position: at(0, CAGE_BOTTOM + 0.25, 0),
-        scale: [1, 1.2, 1],
-      },
-    ),
     // Cage rings top and bottom.
     part(
-      new CylinderGeometry(CAGE_R + 0.05, CAGE_R + 0.05, 0.1, SIDES),
+      new CylinderGeometry(CAGE_R + 0.06, CAGE_R + 0.06, 0.16, SIDES),
       PALETTE.gold,
       { position: at(0, CAGE_BOTTOM, 0) },
     ),
     part(
-      new CylinderGeometry(CAGE_R + 0.05, CAGE_R + 0.05, 0.1, SIDES),
+      new CylinderGeometry(CAGE_R + 0.06, CAGE_R + 0.06, 0.16, SIDES),
       PALETTE.gold,
       { position: at(0, CAGE_TOP, 0) },
     ),
@@ -78,16 +68,51 @@ export function maqamParts(): { matte: Part[]; metal: Part[] } {
     }),
   ];
 
-  // Corner posts of the cage. CylinderGeometry puts corner k at angle k·60° from +Z.
+  // Inside: the stone bearing the two footprints, clad in a silver metal frame.
+  const stoneTop = CAGE_BOTTOM + 0.34;
+  matte.push(
+    part(new BoxGeometry(0.46, 0.3, 0.52), PALETTE.maqamStone, {
+      position: at(0, CAGE_BOTTOM + 0.19, 0),
+    }),
+  );
+  for (const dx of [-0.105, 0.105]) {
+    matte.push(
+      part(new CylinderGeometry(1, 1, 0.02, 16), PALETTE.footprint, {
+        position: at(dx, stoneTop - 0.005, 0),
+        scale: [0.075, 1, 0.17],
+      }),
+    );
+  }
+  const f = 0.04;
+  metal.push(
+    part(new BoxGeometry(0.5 + 2 * f, 0.06, f), PALETTE.silver, {
+      position: at(0, stoneTop - 0.02, 0.26 + f / 2),
+    }),
+    part(new BoxGeometry(0.5 + 2 * f, 0.06, f), PALETTE.silver, {
+      position: at(0, stoneTop - 0.02, -0.26 - f / 2),
+    }),
+    part(new BoxGeometry(f, 0.06, 0.52), PALETTE.silver, {
+      position: at(0.25 + f / 2, stoneTop - 0.02, 0),
+    }),
+    part(new BoxGeometry(f, 0.06, 0.52), PALETTE.silver, {
+      position: at(-0.25 - f / 2, stoneTop - 0.02, 0),
+    }),
+    part(new BoxGeometry(0.62, 0.08, 0.66), PALETTE.silver, {
+      position: at(0, CAGE_BOTTOM + 0.06, 0),
+    }),
+  );
+
+  // Corner posts of the cage: flat gold pillars. CylinderGeometry puts corner k at k·60° from +Z.
   for (let k = 0; k < SIDES; k++) {
     const a = (k * 2 * Math.PI) / SIDES;
     metal.push(
-      part(new CylinderGeometry(0.035, 0.035, CAGE_HEIGHT, 6), PALETTE.gold, {
+      part(new BoxGeometry(0.1, CAGE_HEIGHT, 0.07), PALETTE.gold, {
         position: at(
           CAGE_R * Math.sin(a),
           CAGE_BOTTOM + CAGE_HEIGHT / 2,
           CAGE_R * Math.cos(a),
         ),
+        rotation: [0, a, 0],
       }),
     );
   }

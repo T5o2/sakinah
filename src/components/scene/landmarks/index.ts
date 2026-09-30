@@ -1,7 +1,11 @@
 import type { BufferGeometry } from "three";
 import { mergeParts } from "../lib/parts";
 import { createKiswaGeometry, kaabaParts } from "./kaaba";
-import { hijrParts } from "./hijr";
+import {
+  createHijrBandGeometry,
+  createHijrGateGeometry,
+  hijrParts,
+} from "./hijr";
 import {
   createMaqamDomeGeometry,
   createMaqamLatticeGeometry,
@@ -16,6 +20,8 @@ export interface LandmarkGeometries {
   lanternGlass: BufferGeometry;
   maqamLattice: BufferGeometry;
   maqamDome: BufferGeometry;
+  hijrBand: BufferGeometry;
+  hijrGates: BufferGeometry;
 }
 
 export function buildLandmarkGeometries(): LandmarkGeometries {
@@ -29,5 +35,7 @@ export function buildLandmarkGeometries(): LandmarkGeometries {
     lanternGlass: mergeParts(hijr.lanternGlass),
     maqamLattice: createMaqamLatticeGeometry(),
     maqamDome: createMaqamDomeGeometry(),
+    hijrBand: createHijrBandGeometry(),
+    hijrGates: createHijrGateGeometry(),
   };
 }

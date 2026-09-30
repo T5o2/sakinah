@@ -3,6 +3,12 @@
 import { ContactShadows, Environment, Lightformer } from "@react-three/drei";
 import { PALETTE } from "./lib/palette";
 
+/** Bearings of the warm light panels ringing the horizon (the lit colonnades). */
+const HORIZON_PANELS = Array.from(
+  { length: 8 },
+  (_, i) => (i / 8) * Math.PI * 2,
+);
+
 /**
  * Night lighting. A warm floodlight key from high up (the glowing mataf itself
  * is painted into the floor texture),
@@ -43,29 +49,18 @@ export function SceneLighting() {
           scale={[50, 50, 1]}
           rotation-x={Math.PI / 2}
         />
-        <Lightformer
-          form="rect"
-          intensity={2.5}
-          color={PALETTE.lampWarm}
-          position={[-40, 8, 24]}
-          rotation-y={Math.PI / 2}
-          scale={[30, 6, 1]}
-        />
-        <Lightformer
-          form="rect"
-          intensity={2.5}
-          color={PALETTE.lampWarm}
-          position={[40, 8, -24]}
-          rotation-y={-Math.PI / 2}
-          scale={[30, 6, 1]}
-        />
-        <Lightformer
-          form="rect"
-          intensity={1.5}
-          color={PALETTE.lampWarm}
-          position={[0, 8, 45]}
-          scale={[40, 6, 1]}
-        />
+        {/* The lit colonnades all round the horizon: what vertical gold reflects. */}
+        {HORIZON_PANELS.map((a) => (
+          <Lightformer
+            key={a}
+            form="rect"
+            intensity={2.2}
+            color={PALETTE.lampWarm}
+            position={[40 * Math.sin(a), 7, 40 * Math.cos(a)]}
+            target={[0, 7, 0]}
+            scale={[28, 7, 1]}
+          />
+        ))}
       </Environment>
 
       {/* Soft grounding shadow under the Kaaba, rendered once. */}

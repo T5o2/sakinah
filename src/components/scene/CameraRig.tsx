@@ -7,6 +7,15 @@ import { CAMERA, ORBIT } from "@/lib/config/scene";
 import type { OrbitState } from "./lib/orbitGesture";
 
 const DEG = Math.PI / 180;
+
+/**
+ * Development only: set `window.__sakinahView = { position, target }` in the
+ * console to pin the camera for close-up review. Stripped from production.
+ */
+interface DevView {
+  position: [number, number, number];
+  target: [number, number, number];
+}
 /** Sway fades out quickly when a drag starts, and back in slowly after idle. */
 const SWAY_FADE_OUT_SEC = 0.3;
 
@@ -45,6 +54,15 @@ export function CameraRig({
   });
 
   useFrame(({ camera, scene, invalidate }, delta) => {
+    if (process.env.NODE_ENV !== "production") {
+      const dev = (globalThis as { __sakinahView?: DevView }).__sakinahView;
+      if (dev) {
+        camera.position.set(...dev.position);
+        camera.lookAt(...dev.target);
+        return;
+      }
+    }
+
     const v = view.current;
     const dt = Math.min(delta, 0.1);
 

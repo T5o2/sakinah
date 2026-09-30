@@ -117,6 +117,87 @@ export function createMaqamLatticeTexture(): CanvasTexture {
 }
 
 /**
+ * Inlay band on the outer face of the Hijr wall: white marble carrying a dark
+ * grey interlaced geometric line (one tile, repeated along the arc).
+ */
+export function createHijrBandTexture(): CanvasTexture {
+  const w = 256;
+  const h = 128;
+  const { canvas, ctx } = createCanvas(w, h);
+  ctx.fillStyle = PALETTE.marble;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "#4b4a48";
+  ctx.lineWidth = 5;
+  ctx.strokeRect(0, 10, w, h - 20);
+  ctx.lineWidth = 4;
+  // Interlaced octagon and diamond, meeting the neighbouring tiles at the edges.
+  const cx = w / 2;
+  const cy = h / 2;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    const x = cx + 40 * Math.cos(a);
+    const y = cy + 40 * Math.sin(a);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.moveTo(0, cy);
+  ctx.lineTo(cx - 40, 18);
+  ctx.moveTo(0, cy);
+  ctx.lineTo(cx - 40, h - 18);
+  ctx.moveTo(w, cy);
+  ctx.lineTo(cx + 40, 18);
+  ctx.moveTo(w, cy);
+  ctx.lineTo(cx + 40, h - 18);
+  ctx.stroke();
+  eightPointStar(ctx, cx, cy, 18);
+
+  const texture = toTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  return texture;
+}
+
+/**
+ * The low gates across Hijr Ismail's openings: two gold leaves of pierced
+ * lattice (transparent holes), with a solid rail and crest along the top.
+ */
+export function createHijrGateTexture(): CanvasTexture {
+  const w = 512;
+  const h = 256;
+  const { canvas, ctx } = createCanvas(w, h);
+  // Solid gold leaves…
+  ctx.fillStyle = PALETTE.gold;
+  ctx.fillRect(0, 0, w, h);
+  // …pierced with round openings (transparent where alpha is cut away).
+  ctx.globalCompositeOperation = "destination-out";
+  for (const x0 of [0, w / 2]) {
+    for (let y = 78; y < h - 16; y += 44) {
+      for (let x = x0 + 34; x < x0 + w / 2 - 20; x += 44) {
+        ctx.beginPath();
+        ctx.arc(x, y, 17, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // A gold star inside every opening, and framing rules.
+  ctx.strokeStyle = PALETTE.goldSoft;
+  ctx.lineWidth = 5;
+  for (const x0 of [0, w / 2]) {
+    for (let y = 78; y < h - 16; y += 44) {
+      for (let x = x0 + 34; x < x0 + w / 2 - 20; x += 44)
+        eightPointStar(ctx, x, y, 11);
+    }
+    ctx.strokeRect(x0 + 6, 6, w / 2 - 12, h - 12);
+    ctx.strokeRect(x0 + 6, 6, w / 2 - 12, 42);
+    for (let x = x0 + 30; x < x0 + w / 2 - 10; x += 34)
+      eightPointStar(ctx, x, 27, 9);
+  }
+  return toTexture(canvas);
+}
+
+/**
  * Mataf floor: pale marble that glows under the Kaaba and falls off into
  * the night, with faint rings that give the eye a sense of scale.
  */

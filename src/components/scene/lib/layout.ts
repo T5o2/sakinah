@@ -11,51 +11,66 @@
  */
 
 /**
- * Proportions measured in pixels from reference photos of the Kaaba in the
- * Hajj season (ratios within one wall, so perspective cancels out):
- * rim 6% · black 29% · belt 6% · black 26% · white cloth 13% · stones and
- * base 20% of the height. The door is half the curtain's width.
- * See docs/ARCHITECTURE.md for the measurement table.
+ * Dimensions follow documented (approximate) figures for the Kaaba; close-up
+ * photos are used for shape and detail only, because camera perspective
+ * distorts proportions. Where a photo and a documented figure disagree, the
+ * documented figure wins. Source notes: docs/ARCHITECTURE.md (Phase 2).
  */
 export const KAABA = {
-  /** Door wall and the wall opposite it. */
-  sizeX: 11.7,
-  /** Hijr wall and the wall opposite it. */
-  sizeZ: 10.1,
+  /** Door wall and its opposite (documented 11.68 m and 12.04 m: averaged). */
+  sizeX: 11.9,
+  /** Hijr wall and its opposite (documented 9.90 m and 10.18 m: averaged). */
+  sizeZ: 10.0,
+  /** Documented 13.1–15 m; 14 m is the commonly cited middle value. */
   height: 14,
-  /** Low white parapet round the roof, above the kiswa (height and thickness). */
+  /** Parapet round the roof; the kiswa wraps over it (height and thickness). */
   rimHeight: 0.7,
   rimThickness: 0.55,
-  /** Small raised square on the roof, in the Iraqi (+X, +Z) corner. */
-  roofHatch: { sizeX: 1.8, sizeZ: 2.9, height: 0.35 },
-  /** Kiswa belt (hizam) — centre height and band height. */
-  beltY: 8.65,
-  beltHeight: 0.9,
+  /** White box on the roof with ventilation slots, in the Iraqi (+X, +Z) corner. */
+  roofBox: { length: 2.6, depth: 1.0, height: 1.0 },
+  /** Kiswa belt (hizam): documented at two thirds of the height, about 0.95 m wide. */
+  beltY: (14 * 2) / 3,
+  beltHeight: 0.95,
   /** How far the embroidered belt and door curtain stand off the wall. */
   reliefDepth: 0.05,
-  /** Marble base (shadharwan) running around the foot of the walls, sloped. */
-  baseHeight: 0.35,
-  baseOutset: 0.35,
-  /** Hajj season: the kiswa is raised, exposing the wall stones up to here… */
-  stoneTop: 2.6,
-  /** …and the band above them is wrapped in white cloth up to here. */
-  whiteClothTop: 4.5,
-  /** The gold door: raised above the ground, with wall stones below it. */
+  /**
+   * Shadharwan: sloped white marble at the foot of the walls (documented
+   * 0.25–0.4 m). None on the Hijr side, and none under the door.
+   */
+  baseHeight: 0.4,
+  baseOutset: 0.45,
+  /** Hajj season: wall stones exposed up to here (taller than a person)… */
+  stoneTop: 2.35,
+  /** …then the white cloth (documented about 2–2.5 m wide) up to here. */
+  whiteClothTop: 4.85,
+  /**
+   * The gold door: documented about 2.13 m above the floor, with the stone
+   * wall running down to the floor beneath it. The Multazam — about 2 m of
+   * wall between the Black Stone and the door — places its centre ~2.85 m
+   * from the Black Stone corner.
+   */
   door: {
     width: 1.65,
     height: 3.1,
     bottom: 2.2,
-    fromBlackStoneCorner: 3.2,
+    fromBlackStoneCorner: 2.85,
     standOff: 0.12,
   },
   /**
-   * Door curtain (sitara): black cloth embroidered in gold, hung over the door
-   * from the belt, open at the bottom in an inverted V that shows the door.
+   * Door curtain (sitara): black cloth embroidered in gold, about 4 m wide,
+   * hung from the belt to just above the foot of the door, open at the hem in
+   * an inverted V over its lower third.
    */
-  sitara: { width: 3.3, bottom: 2.6, standOff: 0.2 },
-  /** Column of embroidered lanterns close to the Black Stone corner. */
-  lanternColumnX: 0.45,
-  blackStoneHeight: 1.5,
+  sitara: {
+    width: 4.0,
+    hemAboveDoor: 0.2,
+    standOff: 0.2,
+    openingFraction: 1 / 3,
+  },
+  /** Column of embroidered drops by the Black Stone corner, on the door wall. */
+  dropColumnX: 0.3,
+  /** Black Stone: centre of the silver frame (documented 1.1–1.5 m). */
+  blackStoneHeight: 1.4,
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;
@@ -78,10 +93,10 @@ export const HIJR = {
   gateHeight: 1.25,
 } as const;
 
-/** Maqam Ibrahim stands in front of the door wall. */
+/** Maqam Ibrahim stands in front of the door wall (position kept as approved). */
 export const MAQAM = {
-  x: -HALF_X + KAABA.door.fromBlackStoneCorner,
-  z: HALF_Z + 13,
+  x: -2.65,
+  z: 18.05,
 } as const;
 
 /**

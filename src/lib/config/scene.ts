@@ -17,7 +17,7 @@ export interface TierSettings {
   antialias: boolean;
   /** Canvas-texture resolution for the mataf floor. */
   floorTextureSize: number;
-  /** Width of the kiswa atlas (door wall + other walls side by side, 2:1). */
+  /** Size of the square kiswa atlas (one quarter per wall). */
   kiswaAtlasWidth: number;
 }
 
@@ -69,9 +69,9 @@ export const TAWAF = {
 export const CAMERA = {
   fov: 32,
   /** Aimed above the Kaaba so it sits below the hero text. */
-  target: [0, 9, 0] as [number, number, number],
+  target: [0, 9.8, 0] as [number, number, number],
   /** Distance from the target, metres. */
-  distance: 78,
+  distance: 69,
   /** Degrees above the horizon — an upper-floor view. */
   elevationDeg: 22,
   /** Bearing around the Kaaba; 0 faces the door wall (+Z). */
@@ -103,7 +103,7 @@ export const BUDGET = {
   drawCalls: 30,
   triangles: 150_000,
   /** Static landmarks (Kaaba, Hijr, Maqam) — merged by material. */
-  landmarkDrawCalls: 8,
+  landmarkDrawCalls: 9,
   landmarkTriangles: 30_000,
 };
 

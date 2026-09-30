@@ -9,7 +9,7 @@ import {
   Shape,
   SphereGeometry,
 } from "three";
-import { HALF_X, HIJR, KAABA } from "../lib/layout";
+import { HALF_X, HIJR } from "../lib/layout";
 import { PALETTE } from "../lib/palette";
 import { part, place, type Part } from "../lib/parts";
 
@@ -110,7 +110,8 @@ function openings() {
   const end = HIJR.arcHalfAngleDeg * DEG;
   return [end, -end].map((phi) => {
     const [ex, ez] = hijrPoint(phi);
-    const kx = HALF_X + KAABA.baseOutset;
+    // No shadharwan on the Hijr side: the gates meet the wall itself.
+    const kx = HALF_X + 0.05;
     return { x0: kx, x1: ex, z: ez };
   });
 }

@@ -17,6 +17,7 @@ export interface LandmarkGeometries {
   kiswa: BufferGeometry;
   matte: BufferGeometry;
   metal: BufferGeometry;
+  silver: BufferGeometry;
   lanternGlass: BufferGeometry;
   maqamLattice: BufferGeometry;
   maqamDome: BufferGeometry;
@@ -32,6 +33,7 @@ export function buildLandmarkGeometries(): LandmarkGeometries {
     kiswa: createKiswaGeometry(),
     matte: mergeParts([...kaaba.matte, ...hijr.matte, ...maqam.matte]),
     metal: mergeParts([...kaaba.metal, ...hijr.metal, ...maqam.metal]),
+    silver: mergeParts(kaaba.silver),
     lanternGlass: mergeParts(hijr.lanternGlass),
     maqamLattice: createMaqamLatticeGeometry(),
     maqamDome: createMaqamDomeGeometry(),

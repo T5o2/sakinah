@@ -14,7 +14,7 @@ import {
 const EMBROIDERY_RELIEF = new Vector2(1, 1);
 
 /**
- * The Kaaba, Hijr Ismail and Maqam Ibrahim in eight draw calls: one per
+ * The Kaaba, Hijr Ismail and Maqam Ibrahim in nine draw calls: one per
  * material, with detail carried by merged geometry, vertex colours and
  * painted textures.
  */
@@ -68,13 +68,26 @@ export function HaramLandmarks({ atlasWidth }: { atlasWidth: number }) {
         <meshStandardMaterial vertexColors roughness={0.42} />
       </mesh>
 
-      {/* Gold, silver and bronze: mizab, Black Stone frame, lanterns, gates, Maqam cage. */}
+      {/* Gold and bronze: mizab, shadharwan rings, lanterns, gates, Maqam cage. */}
       <mesh geometry={geometries.metal}>
         <meshStandardMaterial
           vertexColors
           metalness={0.85}
           roughness={0.3}
           envMapIntensity={2.2}
+        />
+      </mesh>
+
+      {/* Polished silver: the Black Stone's frame and the roof's rope rod. */}
+      <mesh geometry={geometries.silver}>
+        {/* Part-diffuse so the silver reads even where it faces the dark sky. */}
+        <meshStandardMaterial
+          vertexColors
+          metalness={0.55}
+          roughness={0.28}
+          envMapIntensity={3}
+          emissive="#8a8a8e"
+          emissiveIntensity={0.18}
         />
       </mesh>
 

@@ -9,11 +9,10 @@ import {
   Path,
   Quaternion,
   Shape,
-  LatheGeometry,
   TorusGeometry,
-  Vector2,
   Vector3,
 } from "three";
+import { TessellateModifier } from "three/examples/jsm/modifiers/TessellateModifier.js";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { HALF_X, HALF_Z, KAABA } from "../lib/layout";
 import { PALETTE } from "../lib/palette";
@@ -24,9 +23,9 @@ import { part, type Part } from "../lib/parts";
  * - one kiswa mesh: the four walls (floor to parapet top), the raised belt,
  *   the raised door, the raised curtain and the cloth wrapped over the
  *   parapet, all sampling one painted atlas (see kiswaAtlas.ts);
- * - small solid parts (shadharwan and its rings, parapet, roof, roof hatch,
- *   Black Stone boss and frame, marble block, mizab) merged with the other
- *   landmarks by material.
+ * - small solid parts (shadharwan and its rings, black tile strip, parapet,
+ *   roof, roof hatch, Black Stone frame, marble block, mizab) merged with
+ *   the other landmarks by material.
  */
 
 export type WallId = "door" | "hijr" | "southWest" | "southEast";
@@ -338,29 +337,25 @@ function tieRings(wall: Wall, x0: number, x1: number, step = 1.4): Part[] {
 }
 
 /**
- * The Black Stone: a rounded mass of dark stone bulging out of the east
- * corner, with the silver frame — rounded above, pointed below, open in the
- * middle — curved round it so it sits on the stone instead of floating.
+ * The Black Stone: a silver frame — rounded above, pointed below, open in the
+ * middle — wrapped round the east corner edge itself. Its back follows a
+ * rounded fillet tangent to both walls, so its sides meet the walls, and it
+ * stands only a little proud of the edge, facing out along the diagonal. The
+ * stone shows through the opening, just behind the frame's face.
  */
-function blackStone(): { frame: Part; stone: Part; boss: Part } {
-  const { radius: R, inset, bottom, top } = KAABA.blackStoneBoss;
+function blackStone(): { frame: Part; stone: Part } {
+  const { halfWidth: w, proud, edgeThickness } = KAABA.blackStoneFrame;
+  // Fillet radius so the frame's half-width spans a quarter turn either side.
+  const R = w / (Math.PI / 4);
+  // Fillet axis: R from both walls, inside the corner along the diagonal.
   const out = new Vector3(-1, 0, 1).normalize();
-  const axis = new Vector3(-HALF_X, 0, HALF_Z).addScaledVector(out, -inset);
+  const axis = new Vector3(-HALF_X, 0, HALF_Z).addScaledVector(
+    out,
+    -R * Math.SQRT2,
+  );
+  // Thickness at the centre: from the fillet out past the edge by `proud`.
+  const centre = R * Math.SQRT2 - R + proud;
 
-  // Boss: a lathe with rounded ends.
-  const e = 0.18;
-  const profile = [
-    new Vector2(0, bottom),
-    new Vector2(R * 0.7, bottom + 0.02),
-    new Vector2(R, bottom + e),
-    new Vector2(R, top - e),
-    new Vector2(R * 0.7, top - 0.02),
-    new Vector2(0, top),
-  ];
-  const boss = new LatheGeometry(profile, 28);
-  boss.translate(axis.x, 0, axis.z);
-
-  const w = 0.38;
   const outline = new Shape();
   outline.moveTo(0, -0.52);
   outline.quadraticCurveTo(w, -0.3, w, 0.02);
@@ -370,37 +365,43 @@ function blackStone(): { frame: Part; stone: Part; boss: Part } {
   hole.absarc(0, 0.04, 0.15, 0, Math.PI * 2, true);
   outline.holes.push(hole);
   const frame = new ExtrudeGeometry(outline, {
-    depth: 0.05,
-    bevelEnabled: true,
-    bevelThickness: 0.03,
-    bevelSize: 0.035,
-    bevelSegments: 3,
-    curveSegments: 18,
+    // Built at its true centre thickness, so splitting adds few side faces.
+    depth: centre,
+    bevelEnabled: false,
+    curveSegments: 20,
   });
-  frame.translate(0, 0, 0.03);
-  const stone = new CircleGeometry(0.15, 20);
-  stone.translate(0, 0.04, 0.02);
+  const stone = new CircleGeometry(0.17, 24);
+  stone.translate(0, 0.04, 0);
 
-  // Wrap both round the boss: x along the surface becomes an angle, z is height off it.
-  const wrap = (g: BufferGeometry) => {
+  /**
+   * Bends a piece built flat (x across, y up, z out; 0..centre for the frame)
+   * round the fillet. Thickness tapers from `centre` at the middle to
+   * `edgeThickness` where the frame meets the walls.
+   */
+  const fine = new TessellateModifier(0.05, 6);
+  const wrap = (
+    g: BufferGeometry,
+    zScale: (th: number, z: number) => number,
+  ) => {
+    // Split long triangles first: bent only at its vertices, a long flat
+    // triangle would stay a straight chord and let the corner edge show through.
+    g = fine.modify(g);
     const pos = g.getAttribute("position");
     const nrm = g.getAttribute("normal");
     for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const z = pos.getZ(i);
-      const th = x / R;
+      const th = pos.getX(i) / R;
       const c = Math.cos(th);
       const sn = Math.sin(th);
-      pos.setXYZ(i, (R + z) * sn, pos.getY(i), (R + z) * c);
-      // Bending is a rotation by th about y at each point: turn the normal
-      // with it, keeping the faces smooth instead of re-deriving facets.
+      const r = R + zScale(th, pos.getZ(i));
+      pos.setXYZ(i, r * sn, pos.getY(i), r * c);
+      // Bending is a rotation by th about y at each point: turn the normal with it.
       const nx = nrm.getX(i);
       const nz = nrm.getZ(i);
       nrm.setXYZ(i, nx * c + nz * sn, nrm.getY(i), -nx * sn + nz * c);
     }
     pos.needsUpdate = true;
     nrm.needsUpdate = true;
-    // Local +Z (the outward diagonal) → world `out`; origin → boss axis.
+    // Local +Z (the outward diagonal) → world `out`; origin → fillet axis.
     g.applyMatrix4(
       new Matrix4()
         .makeRotationY(-Math.PI / 4)
@@ -408,12 +409,81 @@ function blackStone(): { frame: Part; stone: Part; boss: Part } {
     );
     return g;
   };
+  const taper = (th: number) => {
+    const k = Math.cos(2 * Math.min(Math.abs(th), Math.PI / 4)); // 1 at centre, 0 at walls
+    return edgeThickness + (centre - edgeThickness) * k;
+  };
 
   return {
-    frame: { geometry: wrap(frame), color: PALETTE.silver },
-    stone: { geometry: wrap(stone), color: PALETTE.blackStone },
-    boss: { geometry: boss, color: PALETTE.stoneBoss },
+    frame: {
+      geometry: wrap(frame, (th, z) => (z / centre) * taper(th)),
+      color: PALETTE.silver,
+    },
+    // Sunk a little behind the frame's face, in front of the corner edge.
+    stone: {
+      geometry: wrap(stone, (th) => taper(th) - 0.06),
+      color: PALETTE.blackStone,
+    },
   };
+}
+
+/**
+ * The black tile strip at the foot of the Kaaba. Each wall is split into runs
+ * by how far the strip sits from the wall (the shadharwan's outset, or zero);
+ * runs are joined by short connectors and overlap at the corners.
+ */
+function blackStrip(): Part[] {
+  const { width: w, height: h } = KAABA.blackStrip;
+  const o = KAABA.baseOutset;
+  const mb = KAABA.marbleBlock;
+  const doorX1 = KAABA.door.fromBlackStoneCorner + KAABA.door.width / 2;
+  const runs: Record<WallId, [number, number, number][]> = {
+    door: [
+      [0, mb.from + mb.width, o],
+      [mb.from + mb.width, doorX1, 0],
+      [doorX1, KAABA.sizeX, o],
+    ],
+    hijr: [[0, KAABA.sizeZ, 0]],
+    southWest: [[0, KAABA.sizeX, o]],
+    southEast: [[0, KAABA.sizeZ, o]],
+  };
+  // Offset of the strip on the neighbouring wall at each corner, so ends meet.
+  const order: WallId[] = ["door", "hijr", "southWest", "southEast"];
+  const offsetAt = (id: WallId, end: "start" | "end") => {
+    const list = runs[id];
+    const run = end === "start" ? list[0] : list[list.length - 1];
+    return run ? run[2] : 0;
+  };
+
+  const parts: Part[] = [];
+  order.forEach((id, i) => {
+    const wall = wallById(id);
+    const prev = order[(i + 3) % 4] as WallId;
+    const next = order[(i + 1) % 4] as WallId;
+    const list = runs[id];
+    list.forEach(([x0, x1, off], k) => {
+      const startExt = k === 0 ? offsetAt(prev, "end") + w : 0;
+      const endExt = k === list.length - 1 ? offsetAt(next, "start") + w : 0;
+      const a = x0 - startExt;
+      const b = x1 + endExt;
+      const g = new BoxGeometry(b - a, h, w);
+      g.translate((a + b) / 2, h / 2, off + w / 2);
+      g.applyMatrix4(wallMatrix(wall));
+      parts.push({ geometry: g, color: PALETTE.blackTile });
+      // Connector where the next run on this wall sits at a different offset.
+      const following = list[k + 1];
+      if (following && following[2] !== off) {
+        const lo = Math.min(off, following[2]);
+        const hi = Math.max(off, following[2]);
+        const c = new BoxGeometry(w, h, hi - lo + w);
+        const cx = off > following[2] ? x1 + w / 2 : x1 - w / 2;
+        c.translate(cx, h / 2, lo + (hi - lo + w) / 2);
+        c.applyMatrix4(wallMatrix(wall));
+        parts.push({ geometry: c, color: PALETTE.blackTile });
+      }
+    });
+  });
+  return parts;
 }
 
 export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
@@ -422,27 +492,33 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
   /** Polished silver has its own brighter material (see HaramLandmarks). */
   const silver: Part[] = [];
 
-  // Shadharwan: along the two southern walls and along the door wall after
-  // the door. None on the Hijr side, and none from the marble block beside the
-  // Black Stone to the far edge of the door: there the wall stones run down
-  // to the floor.
+  // Shadharwan: along the two southern walls, round the Black Stone corner to
+  // the marble block, and along the door wall after the door. None on the
+  // Hijr side, and none from the marble block to the far edge of the door:
+  // there the wall stones run down to the floor.
   const doorWall = wallById("door");
   const { door, baseOutset: o } = KAABA;
   const doorX1 = door.fromBlackStoneCorner + door.width / 2;
+  const mb = KAABA.marbleBlock;
+  const blockEnd = mb.from + mb.width;
   const segments: [Wall, number, number][] = [
+    // From the Black Stone corner to the far side of the marble block.
+    [doorWall, 0, blockEnd],
     [doorWall, doorX1, doorWall.length],
     [wallById("southWest"), 0, KAABA.sizeX],
     [wallById("southEast"), 0, KAABA.sizeZ],
   ];
   for (const [wall, x0, x1] of segments) {
     matte.push(shadharwan(wall, x0, x1));
+    // The short run under the marble block carries no rings.
+    if (x1 - x0 < 1.5) continue;
     metal.push(
       ...tieRings(wall, Math.max(x0, 0.3), Math.min(x1, wall.length - 0.3)),
     );
   }
-  // Convex hip where two runs meet at the Yemeni corner: a square frustum
-  // whose faces share the runs' slope.
-  for (const z of [-HALF_Z]) {
+  // Convex hip where two runs meet (Yemeni and Black Stone corners): a square
+  // frustum whose faces share the runs' slope.
+  for (const z of [-HALF_Z, HALF_Z]) {
     matte.push(
       part(
         new CylinderGeometry(
@@ -492,8 +568,8 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
     ),
   );
 
-  // Flat hatch in the Iraqi corner of the roof, barely raised: a pale frame
-  // with two panes.
+  // Hatch in the Iraqi corner of the roof: raised a little, its top still
+  // below the parapet so it never shows from the side; two panes on top.
   const hatch = KAABA.roofHatch;
   const hx = HALF_X - t - hatch.depth / 2 - 0.1;
   const hz = HALF_Z - t - hatch.length / 2 - 0.1;
@@ -517,13 +593,17 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
     );
   }
 
-  // Black Stone: the stone boss, the silver frame round it, the stone within.
+  // Black Stone: the silver frame on the corner edge, the stone within.
   const bs = blackStone();
   silver.push(bs.frame);
-  matte.push(bs.stone, bs.boss);
+  matte.push(bs.stone);
 
-  // Upright white marble block beside the Black Stone, against the door wall.
-  const mb = KAABA.marbleBlock;
+  // Strip of small black tiles on the floor round the whole Kaaba: against
+  // the shadharwan's foot where there is one, against the wall where not.
+  matte.push(...blackStrip());
+
+  // Upright white marble block rising out of the shadharwan beside the Black
+  // Stone, flush with its foot and with the end of its run.
   const mbX = -HALF_X + mb.from + mb.width / 2;
   matte.push(
     part(new BoxGeometry(mb.width, mb.height, mb.depth), PALETTE.marble, {

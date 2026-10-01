@@ -18,7 +18,7 @@ export const PALETTE = {
   roofBox: "#e4e6e8",
   granite: "#1d1c1c",
   blackStone: "#1b1716",
-  stoneBoss: "#4a453e",
+  blackTile: "#141313",
   bronze: "#5b4a2c",
   lanternGlass: "#0f3d27",
   lanternGlow: "#2f8a57",

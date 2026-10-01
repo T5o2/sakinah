@@ -27,7 +27,7 @@ export const KAABA = {
   rimHeight: 0.7,
   rimThickness: 0.55,
   /** Flat hatch in the roof floor, in the Iraqi (+X, +Z) corner, barely raised. */
-  roofHatch: { length: 2.6, depth: 1.6, height: 0.05 },
+  roofHatch: { length: 2.6, depth: 1.6, height: 0.45 },
   /** Kiswa belt (hizam): documented at two thirds of the height, about 0.95 m wide. */
   beltY: (14 * 2) / 3,
   beltHeight: 0.95,
@@ -75,9 +75,19 @@ export const KAABA = {
    * The rounded mass of dark stone the frame is set into, bulging out of the
    * east corner (radius, how far its axis sits inside the corner, height span).
    */
-  blackStoneBoss: { radius: 0.5, inset: 0.22, bottom: 0.75, top: 2.05 },
-  /** Upright white marble block beside the Black Stone, against the door wall. */
-  marbleBlock: { from: 0.5, width: 0.5, depth: 0.55, height: 1.15, cap: 0.1 },
+  /**
+   * The silver frame wraps the corner edge itself: its back follows a
+   * rounded fillet tangent to both walls, and it stands a little proud of
+   * the edge, facing out along the corner's diagonal.
+   */
+  blackStoneFrame: { halfWidth: 0.38, proud: 0.1, edgeThickness: 0.08 },
+  /**
+   * Upright white marble block beside the Black Stone: it rises out of the
+   * shadharwan, one piece with it, and is as deep as the shadharwan's foot.
+   */
+  marbleBlock: { from: 0.5, width: 0.5, depth: 0.45, height: 1.15, cap: 0.1 },
+  /** Strip of small black tiles on the floor round the whole Kaaba. */
+  blackStrip: { width: 0.22, height: 0.012 },
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;

@@ -103,7 +103,7 @@ export const BUDGET = {
   drawCalls: 30,
   triangles: 150_000,
   /** Static landmarks (Kaaba, Hijr, Maqam) — merged by material. */
-  landmarkDrawCalls: 9,
+  landmarkDrawCalls: 10,
   landmarkTriangles: 30_000,
 };
 

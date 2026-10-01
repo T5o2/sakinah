@@ -7,6 +7,7 @@ import { createKiswaTextures } from "./lib/kiswaAtlas";
 import { PALETTE } from "./lib/palette";
 import {
   createHijrBandTexture,
+  createGraniteTexture,
   createHijrGateTexture,
   createMaqamLatticeTexture,
 } from "./lib/textures";
@@ -14,7 +15,7 @@ import {
 const EMBROIDERY_RELIEF = new Vector2(1, 1);
 
 /**
- * The Kaaba, Hijr Ismail and Maqam Ibrahim in nine draw calls: one per
+ * The Kaaba, Hijr Ismail and Maqam Ibrahim in ten draw calls: one per
  * material, with detail carried by merged geometry, vertex colours and
  * painted textures.
  */
@@ -26,6 +27,7 @@ export function HaramLandmarks({ atlasWidth }: { atlasWidth: number }) {
       lattice: createMaqamLatticeTexture(),
       band: createHijrBandTexture(),
       gate: createHijrGateTexture(),
+      granite: createGraniteTexture(),
     }),
     [],
   );
@@ -108,6 +110,17 @@ export function HaramLandmarks({ atlasWidth }: { atlasWidth: number }) {
       {/* Inlay band along the Hijr wall's outer face. */}
       <mesh geometry={geometries.hijrBand}>
         <meshStandardMaterial map={small.band} roughness={0.42} />
+      </mesh>
+
+      {/* Dark granite strip set flush into the floor round the Kaaba. */}
+      <mesh geometry={geometries.floorStrip}>
+        <meshStandardMaterial
+          map={small.granite}
+          roughness={0.55}
+          polygonOffset
+          polygonOffsetFactor={-2}
+          polygonOffsetUnits={-2}
+        />
       </mesh>
 
       {/* Low latticed gold gates at the Hijr openings. */}

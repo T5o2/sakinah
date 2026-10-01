@@ -62,6 +62,8 @@ const JOINT = surf("#a38c5c", 0.7, 0.5, 0.35, 0.28);
 const STONE_SHADES = ["#57534c", "#5f5a51", "#4f4b45", "#655e54", "#5a544b"];
 const CORNER_STONE = surf("#7b705f", 0.55, 0.85, 0, 0.5);
 const GROUND = surf("#0f0d0a", 0.3, 0.7, 0.1, 0.45);
+/** Black Stone corner drop column: one roundel, then these drops. */
+const DROP_COLUMN = { count: 5, width: 0.62, height: 0.64, step: 0.82 };
 /** Thick padded black border round the stone showing at the Yemeni corner. */
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
@@ -426,20 +428,18 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
 }
 
 /**
- * Black Stone corner: a column of embroidered drops on the corner edge
- * itself, above the stone, headed by a roundel, running down over the black
- * kiswa and on over the white cloth. Painted centred on the edge, so half of
- * each shape falls on each of the two walls (`edgeX` is the corner's x).
+ * Black Stone corner: one roundel just under the belt, then five large
+ * embroidered drops at a wide, even spacing — about two on the black kiswa
+ * and the rest on the white cloth. Painted centred on the corner edge, so
+ * half of each shape falls on each wall (`edgeX` is the corner's x).
  */
 function paintDropColumn(p: Painter, edgeX: number) {
   roundel(p, edgeX, PANEL_CY, 0.3);
-  const top = PANEL_CY - 0.4;
-  // Spacing as five drops over the black; the column then carries on down
-  // over the white cloth at the same spacing, stopping above the stones.
-  const step = (top - (KAABA.whiteClothTop + 0.1)) / 5;
-  const h = step * 0.86;
-  for (let cy = top - step / 2; cy - h / 2 > KAABA.stoneTop + 0.1; cy -= step) {
-    drop(p, edgeX, cy, 0.55, h);
+  const { count, width, height, step } = DROP_COLUMN;
+  // Bottom drop just above the stones; the rest stacked up at `step`.
+  const lowest = KAABA.stoneTop + 0.12 + height / 2;
+  for (let i = 0; i < count; i++) {
+    drop(p, edgeX, lowest + i * step, width, height);
   }
 }
 
@@ -521,7 +521,7 @@ function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
   });
 }
 
-/** A curtain register: gold frame, deep-gold ground, dense gold lattice. */
+/** A curtain register: gold throughout, edged by a hair-thin black line. */
 function sitaraPanel(
   p: Painter,
   x0: number,
@@ -530,16 +530,25 @@ function sitaraPanel(
   y1: number,
 ) {
   p.rect(GROUND, x0, y0, x1, y1);
-  p.frame(THREAD_SOFT, 0.035, x0 + 0.04, y0 + 0.04, x1 - 0.04, y1 - 0.04);
-  p.rect(THREAD_DEEP, x0 + 0.075, y0 + 0.075, x1 - 0.075, y1 - 0.075);
-  goldFill(p, x0 + 0.1, y0 + 0.1, x1 - 0.1, y1 - 0.1, THREAD, THREAD_SOFT);
+  p.rect(THREAD_SOFT, x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02);
+  p.rect(THREAD, x0 + 0.055, y0 + 0.055, x1 - 0.055, y1 - 0.055);
+  goldFill(
+    p,
+    x0 + 0.07,
+    y0 + 0.07,
+    x1 - 0.07,
+    y1 - 0.07,
+    THREAD_DEEP,
+    THREAD_SOFT,
+  );
 }
 
-/** A curtain roundel: gold throughout, a deep-gold ring and a rosette. */
+/** A curtain roundel: gold, with a hair-thin black ring at its edge. */
 function sitaraRoundel(p: Painter, cx: number, cy: number, r: number) {
-  p.disc(THREAD_SOFT, cx, cy, r);
-  p.disc(GROUND, cx, cy, r - 0.04);
-  p.rosette(THREAD, cx, cy, r * 0.85, 12);
+  p.disc(GROUND, cx, cy, r);
+  p.disc(THREAD_SOFT, cx, cy, r - 0.02);
+  p.disc(THREAD, cx, cy, r - 0.05);
+  p.rosette(THREAD_DEEP, cx, cy, r * 0.85, 12);
   p.ring(THREAD_SOFT, r * 0.06, cx, cy, r * 0.45);
   p.disc(THREAD_SOFT, cx, cy, r * 0.14);
 }
@@ -558,11 +567,11 @@ function paintSitara(p: Painter) {
   const y0 = SITARA_HEM;
   const y1 = SITARA_TOP;
 
-  // Gold field with a border of small roundels.
-  // Black cloth with a gold border; black shows between every panel.
-  p.rect(GROUND, x0, y0, x1, y1);
-  p.frame(THREAD, 0.09, x0, y0, x1, y1);
-  p.frame(THREAD_DEEP, 0.02, x0 + 0.34, y0 + 0.34, x1 - 0.34, y1 - 0.34);
+  // Gold almost throughout (~90%): black only as hair-thin lines between
+  // the ornaments. A border of small roundels runs round the edge.
+  p.rect(THREAD, x0, y0, x1, y1);
+  p.frame(GROUND, 0.02, x0, y0, x1, y1);
+  p.frame(GROUND, 0.02, x0 + 0.33, y0 + 0.33, x1 - 0.33, y1 - 0.33);
   for (let y = y0 + 0.3; y < y1 - 0.15; y += 0.42) {
     sitaraRoundel(p, x0 + 0.17, y, 0.12);
     sitaraRoundel(p, x1 - 0.17, y, 0.12);
@@ -579,7 +588,8 @@ function paintSitara(p: Painter) {
   sitaraPanel(p, ix0, ix1, r2 - 0.42, r2 + 0.42);
   for (const k of [-1, 0, 1])
     sitaraRoundel(p, cx + k * ((ix1 - ix0) / 3), r2, 0.32);
-  // The dark cartouche at the heart (where the real curtain's main panel is).
+  // The cartouche at the heart (where the real curtain's main panel is):
+  // deep gold, edged by a thin black line.
   const cy = r2 - 1.05;
   const ch = 0.5;
   p.with(THREAD_SOFT, (ctx) => {
@@ -594,7 +604,19 @@ function paintSitara(p: Painter) {
     ctx.fill();
   });
   p.with(GROUND, (ctx) => {
-    const k = 0.07;
+    const k = 0.05;
+    ctx.beginPath();
+    ctx.moveTo(ix0 + k * 1.4, cy);
+    ctx.lineTo(ix0 + ch + k * 0.4, cy + ch - k);
+    ctx.lineTo(ix1 - ch - k * 0.4, cy + ch - k);
+    ctx.lineTo(ix1 - k * 1.4, cy);
+    ctx.lineTo(ix1 - ch - k * 0.4, cy - ch + k);
+    ctx.lineTo(ix0 + ch + k * 0.4, cy - ch + k);
+    ctx.closePath();
+    ctx.fill();
+  });
+  p.with(THREAD_DEEP, (ctx) => {
+    const k = 0.08;
     ctx.beginPath();
     ctx.moveTo(ix0 + k * 1.4, cy);
     ctx.lineTo(ix0 + ch + k * 0.4, cy + ch - k);

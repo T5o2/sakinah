@@ -54,7 +54,8 @@ export const KAABA = {
     height: 3.1,
     bottom: 2.2,
     fromBlackStoneCorner: 2.85,
-    standOff: 0.12,
+    /** Flush with the wall, just behind the curtain. */
+    standOff: 0.01,
   },
   /**
    * Door curtain (sitara): black cloth embroidered in gold, about 4 m wide,
@@ -64,7 +65,8 @@ export const KAABA = {
   sitara: {
     width: 4.0,
     hemAboveDoor: 0.2,
-    standOff: 0.2,
+    /** Hangs flat on the wall like the rest of the kiswa. */
+    standOff: 0.03,
     openingFraction: 1 / 3,
     /** Black gap between the belt and the top of the curtain. */
     gapBelowBelt: 0.4,
@@ -86,8 +88,8 @@ export const KAABA = {
    * shadharwan, one piece with it, and is as deep as the shadharwan's foot.
    */
   marbleBlock: { from: 0.5, width: 0.5, depth: 0.45, height: 1.15, cap: 0.1 },
-  /** Strip of small black tiles on the floor round the whole Kaaba. */
-  blackStrip: { width: 0.22, height: 0.012 },
+  /** Strip of dark granite tiles set flush into the floor round the whole Kaaba. */
+  blackStrip: { width: 0.22, height: 0.004 },
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;

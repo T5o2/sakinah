@@ -469,7 +469,7 @@ function blackStrip(): Part[] {
       const g = new BoxGeometry(b - a, h, w);
       g.translate((a + b) / 2, h / 2, off + w / 2);
       g.applyMatrix4(wallMatrix(wall));
-      parts.push({ geometry: g, color: PALETTE.blackTile });
+      parts.push({ geometry: g, color: PALETTE.granite });
       // Connector where the next run on this wall sits at a different offset.
       const following = list[k + 1];
       if (following && following[2] !== off) {
@@ -479,14 +479,19 @@ function blackStrip(): Part[] {
         const cx = off > following[2] ? x1 + w / 2 : x1 - w / 2;
         c.translate(cx, h / 2, lo + (hi - lo + w) / 2);
         c.applyMatrix4(wallMatrix(wall));
-        parts.push({ geometry: c, color: PALETTE.blackTile });
+        parts.push({ geometry: c, color: PALETTE.granite });
       }
     });
   });
   return parts;
 }
 
-export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
+export function kaabaParts(): {
+  matte: Part[];
+  metal: Part[];
+  silver: Part[];
+  strip: Part[];
+} {
   const matte: Part[] = [];
   const metal: Part[] = [];
   /** Polished silver has its own brighter material (see HaramLandmarks). */
@@ -600,7 +605,7 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
 
   // Strip of small black tiles on the floor round the whole Kaaba: against
   // the shadharwan's foot where there is one, against the wall where not.
-  matte.push(...blackStrip());
+  const strip = blackStrip();
 
   // Upright white marble block rising out of the shadharwan beside the Black
   // Stone, flush with its foot and with the end of its run.
@@ -642,5 +647,5 @@ export function kaabaParts(): { matte: Part[]; metal: Part[]; silver: Part[] } {
     ...tieRings(wallById("southEast"), 0.1, 0.7, 0.3),
   );
 
-  return { matte, metal, silver };
+  return { matte, metal, silver, strip };
 }

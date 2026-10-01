@@ -1,4 +1,4 @@
-import type { BufferGeometry } from "three";
+import { BufferAttribute, type BufferGeometry } from "three";
 import { mergeParts } from "../lib/parts";
 import { createKiswaGeometry, kaabaParts } from "./kaaba";
 import {
@@ -12,6 +12,21 @@ import {
   maqamParts,
 } from "./maqam";
 
+/** Planar UVs from world x/z, so the granite texture tiles evenly along the strip. */
+function withFloorUv(
+  geometry: BufferGeometry,
+  metresPerTile = 0.6,
+): BufferGeometry {
+  const pos = geometry.getAttribute("position");
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i++) {
+    uv[i * 2] = pos.getX(i) / metresPerTile;
+    uv[i * 2 + 1] = pos.getZ(i) / metresPerTile;
+  }
+  geometry.setAttribute("uv", new BufferAttribute(uv, 2));
+  return geometry;
+}
+
 /** One geometry per material: each entry is exactly one draw call. */
 export interface LandmarkGeometries {
   kiswa: BufferGeometry;
@@ -23,6 +38,7 @@ export interface LandmarkGeometries {
   maqamDome: BufferGeometry;
   hijrBand: BufferGeometry;
   hijrGates: BufferGeometry;
+  floorStrip: BufferGeometry;
 }
 
 export function buildLandmarkGeometries(): LandmarkGeometries {
@@ -39,5 +55,6 @@ export function buildLandmarkGeometries(): LandmarkGeometries {
     maqamDome: createMaqamDomeGeometry(),
     hijrBand: createHijrBandGeometry(),
     hijrGates: createHijrGateGeometry(),
+    floorStrip: withFloorUv(mergeParts(kaaba.strip)),
   };
 }

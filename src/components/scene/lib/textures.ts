@@ -197,6 +197,31 @@ export function createHijrGateTexture(): CanvasTexture {
   return toTexture(canvas);
 }
 
+/** Dark grey speckled granite for the floor strip round the Kaaba (one tile). */
+export function createGraniteTexture(): CanvasTexture {
+  const size = 128;
+  const { canvas, ctx } = createCanvas(size, size);
+  ctx.fillStyle = "#3a3a3b";
+  ctx.fillRect(0, 0, size, size);
+  let seed = 23;
+  const rand = () => {
+    seed = (seed * 16807) % 2147483647;
+    return seed / 2147483647;
+  };
+  for (let i = 0; i < 1400; i++) {
+    const light = rand() > 0.6;
+    ctx.fillStyle = light
+      ? `rgba(170, 168, 162, ${0.25 + rand() * 0.35})`
+      : `rgba(12, 12, 12, ${0.3 + rand() * 0.4})`;
+    const d = 1 + rand() * 1.6;
+    ctx.fillRect(rand() * size, rand() * size, d, d);
+  }
+  const texture = toTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = RepeatWrapping;
+  return texture;
+}
+
 /**
  * Mataf floor: pale marble that glows under the Kaaba and falls off into
  * the night, with faint rings that give the eye a sense of scale.

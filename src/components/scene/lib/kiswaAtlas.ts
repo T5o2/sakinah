@@ -68,8 +68,13 @@ const DROP_COLUMN = { count: 5, width: 0.62, height: 0.64, step: 0.82 };
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
-/** Silver accents, used sparingly inside a few curtain ornaments. */
-const SILVER = surf("#cfcfd2", 1, 0.28, 0.85, 0.85);
+/**
+ * Silver-white thread: the curtain's second style, white on black, used for
+ * its three distinguished shapes (the arched row, the central cartouche and
+ * the two large roundels). Mostly diffuse so it reads white, not grey.
+ */
+const SILVER = surf("#e4e3df", 1, 0.4, 0.45, 0.85);
+const SILVER_BRIGHT = surf("#f6f5f1", 1, 0.36, 0.45, 0.95);
 /**
  * The door is the one gold that differs from the embroidery: a dark, warm
  * gold in solid polished metal. It stands apart by being smooth and
@@ -581,12 +586,17 @@ function curtainPanel(
   );
 }
 
-/** Fills `path` like a curtain panel: gold frame, dark ground, fine gold ornament. */
+/**
+ * Fills `path` like a curtain panel: gold frame and dark ground, then either
+ * fine gold ornament or, for the distinguished shapes, dense silver-white
+ * ornament (white on black).
+ */
 function curtainShape(
   p: Painter,
   path: (ctx: Ctx, inset: number) => void,
   bounds: [number, number, number, number],
-  accent: Surface = GOLD_SOFT,
+  style: "gold" | "silver" = "gold",
+  density = 2.4,
 ) {
   p.with(GOLD, (ctx) => {
     path(ctx, 0);
@@ -603,11 +613,17 @@ function curtainShape(
   });
   p.clipped(
     (ctx) => path(ctx, 0.065),
-    () => goldFill(p, ...bounds, GOLD, accent, 1.7),
+    () =>
+      style === "gold"
+        ? goldFill(p, ...bounds, GOLD, GOLD_SOFT, 1.7)
+        : goldFill(p, ...bounds, SILVER, SILVER_BRIGHT, density),
   );
 }
 
-/** One of the four repeated medallions: a pointed arch with a silver-hearted rosette. */
+/**
+ * One of the four arched medallions: rounded above, a gold frame, a black
+ * ground and dense silver-white ornament inside.
+ */
 function curtainArch(
   p: Painter,
   cx: number,
@@ -618,41 +634,44 @@ function curtainArch(
   const arch = (ctx: Ctx, inset: number) => {
     const x0 = cx - w / 2 + inset;
     const x1 = cx + w / 2 - inset;
-    const shoulder = y1 - w * 0.55;
+    const shoulder = y1 - w / 2;
     ctx.beginPath();
     ctx.moveTo(x0, y0 + inset);
     ctx.lineTo(x1, y0 + inset);
     ctx.lineTo(x1, shoulder);
-    ctx.quadraticCurveTo(x1, y1 - inset - w * 0.1, cx, y1 - inset);
-    ctx.quadraticCurveTo(x0, y1 - inset - w * 0.1, x0, shoulder);
+    ctx.arc(cx, shoulder, w / 2 - inset, 0, Math.PI, false);
     ctx.closePath();
   };
-  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1]);
-  const cy = y0 + (y1 - y0) * 0.42;
-  p.disc(GOLD, cx, cy, w * 0.22);
-  p.rosette(GROUND, cx, cy, w * 0.2, 8);
-  p.disc(SILVER, cx, cy, w * 0.07);
+  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1], "silver", 1.75);
 }
 
-/** The large oval: gold frame, dark ground, fine gold ornament, a small silver heart. */
-function curtainOval(
+/**
+ * The central cartouche: a long horizontal panel with pointed ends (an
+ * elongated hexagon), a gold frame, a black ground and dense silver-white
+ * ornament inside.
+ */
+function curtainCartouche(
   p: Painter,
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
+  x0: number,
+  x1: number,
+  y0: number,
+  y1: number,
 ) {
-  const oval = (ctx: Ctx, inset: number) => {
+  const cy = (y0 + y1) / 2;
+  const tip = (y1 - y0) * 0.55;
+  const hexagon = (ctx: Ctx, inset: number) => {
+    // Pull the tips in a little more than the sides so the frame stays even.
+    const k = inset * 1.4;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, rx - inset, ry - inset, 0, 0, Math.PI * 2);
+    ctx.moveTo(x0 + k, cy);
+    ctx.lineTo(x0 + tip + inset * 0.4, y1 - inset);
+    ctx.lineTo(x1 - tip - inset * 0.4, y1 - inset);
+    ctx.lineTo(x1 - k, cy);
+    ctx.lineTo(x1 - tip - inset * 0.4, y0 + inset);
+    ctx.lineTo(x0 + tip + inset * 0.4, y0 + inset);
+    ctx.closePath();
   };
-  curtainShape(p, oval, [cx - rx, cy - ry, cx + rx, cy + ry]);
-  // A small silver-hearted medallion at its centre: the only silver here.
-  const m = Math.min(rx, ry) * 0.32;
-  p.disc(GOLD, cx, cy, m);
-  p.disc(GROUND, cx, cy, m - 0.03);
-  p.rosette(GOLD, cx, cy, m * 0.85, 12);
-  p.disc(SILVER, cx, cy, m * 0.3);
+  curtainShape(p, hexagon, [x0, y0, x1, y1], "silver", 1.75);
 }
 
 /** A small roundel of the side frames: gold ring, dark ground, gold rosette. */
@@ -664,41 +683,30 @@ function curtainSmallRoundel(p: Painter, cx: number, cy: number, r: number) {
 }
 
 /**
- * A large roundel beside the opening, in nested rings: a gold frame, a dark
- * band of gold stars, a gold ring, and a decorated centre with a silver heart.
+ * A large roundel beside the opening: an outer gold frame, a black ground
+ * almost covered by dense silver-white ornament, and a gold disc at the centre.
  */
 function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
-  p.disc(GOLD, cx, cy, r);
-  p.ring(GOLD_SOFT, 0.015, cx, cy, r - 0.025);
-  p.disc(GROUND, cx, cy, r - 0.06);
-  const n = Math.max(10, Math.round((2 * Math.PI * r * 0.8) / 0.13));
-  for (let k = 0; k < n; k++) {
-    const a = (k / n) * Math.PI * 2;
-    p.star(
-      GOLD,
-      0.02,
-      cx + Math.cos(a) * r * 0.81,
-      cy + Math.sin(a) * r * 0.81,
-      0.045,
-    );
-  }
-  p.disc(GOLD, cx, cy, r * 0.68);
-  p.disc(GROUND, cx, cy, r * 0.62);
-  p.rosette(GOLD, cx, cy, r * 0.58, 12);
-  p.ring(GOLD_SOFT, Math.max(0.012, r * 0.025), cx, cy, r * 0.3);
-  p.disc(SILVER, cx, cy, r * 0.17);
-  p.star(GOLD, 0.02, cx, cy, r * 0.13);
+  const circle = (ctx: Ctx, inset: number) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r - inset, 0, Math.PI * 2);
+  };
+  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], "silver", 3);
+  p.disc(GROUND, cx, cy, r * 0.27);
+  p.disc(GOLD, cx, cy, r * 0.24);
+  p.rosette(GOLD_SOFT, cx, cy, r * 0.21, 8);
+  p.disc(GOLD, cx, cy, r * 0.06);
 }
 
 /**
  * The door curtain (sitara), close to the real one but geometric throughout,
- * with no letters. Every shape has a gold frame around a dark ground carrying
- * fine gold ornament; the field between them is gold. From the top: a wide
- * panel, a row of four arched medallions, and a large oval reaching down to
- * the apex of the inverted-V opening (just under half the curtain's height).
- * Either side of the opening: a large ringed roundel, then small panels down
- * to the hem. A column of small roundels runs down each side edge. Silver
- * appears only as small accents.
+ * with no letters. Two styles, as on the real curtain: gold on black for the
+ * frames and ordinary panels, and silver-white on black for its three
+ * distinguished shapes. From the top: a wide panel, a row of four arched
+ * medallions, and a long pointed cartouche reaching down to the apex of the
+ * inverted-V opening (just under half the curtain's height). Either side of
+ * the opening: a large roundel, then small panels down to the hem. A column
+ * of small roundels runs down each side edge.
  */
 function paintSitara(p: Painter) {
   const cx = DOOR_X;
@@ -735,22 +743,22 @@ function paintSitara(p: Painter) {
   // 2. A row of four arched medallions.
   const slot = iw / 4;
   for (let k = 0; k < 4; k++) {
-    curtainArch(p, ix0 + slot * (k + 0.5), y - 0.9, y, slot - gap);
+    curtainArch(p, ix0 + slot * (k + 0.5), y - 0.9, y, slot - 0.14);
   }
   y -= 0.9 + gap;
 
-  // 3. The large oval, down to just above the apex of the opening, with small
+  // 3. The long pointed cartouche, down to just above the apex of the opening, with small
   //    panels in its corners.
   const apexTop = SITARA_APEX + gap;
-  const ovalH = y - apexTop;
-  curtainOval(p, cx, y - ovalH / 2, iw / 2, ovalH / 2);
-  const corner = Math.min(0.3, ovalH * 0.3);
+  const bandH = y - apexTop;
+  curtainCartouche(p, ix0, ix1, apexTop + bandH * 0.18, y - bandH * 0.18);
+  const corner = Math.min(0.3, bandH * 0.3);
   for (const sx of [ix0, ix1 - corner]) {
     curtainPanel(p, sx, sx + corner, y - corner, y);
     curtainPanel(p, sx, sx + corner, apexTop, apexTop + corner);
   }
 
-  // 4. Either side of the opening: a large ringed roundel, then small panels
+  // 4. Either side of the opening: a large silver-white roundel, then small panels
   //    whose inner edge follows the sloping side of the opening.
   /** Half-width of the opening at height y (zero at the apex). */
   const open = (yy: number) =>

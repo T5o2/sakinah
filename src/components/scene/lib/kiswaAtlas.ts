@@ -69,10 +69,11 @@ const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
 /**
- * Dim silver thread: only small accents (the stars of the lattice) inside the
- * curtain's three distinguished shapes, for a little depth. Never dominant.
+ * Dim silver-white thread: only fine accents (the small stars of the lattice)
+ * inside the curtain's three distinguished shapes, about 5–10% of each shape.
+ * A faint glint from the mataf, never dominant and never bright white.
  */
-const SILVER = surf("#7b7b78", 1, 0.45, 0.4, 0.8);
+const SILVER = surf("#bdbcb6", 1, 0.4, 0.5, 0.85);
 /**
  * The door is the one gold that differs from the embroidery: a dark, warm
  * gold in solid polished metal. It stands apart by being smooth and
@@ -327,7 +328,9 @@ function goldFill(
       for (let y = y0 + cell / 2, row = 0; y < y1; y += cell / 2, row++) {
         const offset = row % 2 === 0 ? 0 : cell / 2;
         for (let x = x0 + offset; x <= x1; x += cell) {
-          p.star(accent, cell * 0.07, x + cell / 2, y, cell * 0.26);
+          // Silver accents are drawn finer than gold ones: a faint glint, not a pattern.
+          const thin = accent === SILVER ? 0.045 : 0.07;
+          p.star(accent, cell * thin, x + cell / 2, y, cell * 0.26);
           p.disc(line, x, y, cell * 0.07 * weight);
         }
       }

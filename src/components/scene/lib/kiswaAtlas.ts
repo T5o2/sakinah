@@ -69,12 +69,14 @@ const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
 /**
- * Silver-white thread: the curtain's second style, white on black, used for
- * its three distinguished shapes (the arched row, the central cartouche and
- * the two large roundels). Mostly diffuse so it reads white, not grey.
+ * Silver thread: the curtain's second style, silver on black, used for its
+ * three distinguished shapes (the arched row, the central cartouche and the
+ * two large roundels). Seen from the mataf, the fine silver threads blend
+ * with the black ground, so these shapes read as a dim silver-grey — about
+ * as bright as the gold around them, not white (measured on photos).
  */
-const SILVER = surf("#e4e3df", 1, 0.4, 0.45, 0.85);
-const SILVER_BRIGHT = surf("#f6f5f1", 1, 0.36, 0.45, 0.95);
+const SILVER = surf("#7b7b78", 1, 0.45, 0.4, 0.8);
+const SILVER_BRIGHT = surf("#8f8f8b", 1, 0.42, 0.4, 0.9);
 /**
  * The door is the one gold that differs from the embroidery: a dark, warm
  * gold in solid polished metal. It stands apart by being smooth and
@@ -642,7 +644,7 @@ function curtainArch(
     ctx.arc(cx, shoulder, w / 2 - inset, 0, Math.PI, false);
     ctx.closePath();
   };
-  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1], "silver", 1.75);
+  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1], "silver", 1.2);
 }
 
 /**
@@ -671,7 +673,7 @@ function curtainCartouche(
     ctx.lineTo(x0 + tip + inset * 0.4, y0 + inset);
     ctx.closePath();
   };
-  curtainShape(p, hexagon, [x0, y0, x1, y1], "silver", 1.75);
+  curtainShape(p, hexagon, [x0, y0, x1, y1], "silver", 1.2);
 }
 
 /** A small roundel of the side frames: gold ring, dark ground, gold rosette. */
@@ -691,7 +693,7 @@ function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
     ctx.beginPath();
     ctx.arc(cx, cy, r - inset, 0, Math.PI * 2);
   };
-  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], "silver", 3);
+  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], "silver", 1.15);
   p.disc(GROUND, cx, cy, r * 0.27);
   p.disc(GOLD, cx, cy, r * 0.24);
   p.rosette(GOLD_SOFT, cx, cy, r * 0.21, 8);

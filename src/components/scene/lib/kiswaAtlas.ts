@@ -669,11 +669,12 @@ function curtainCartouche(
   curtainShape(p, hexagon, [x0, y0, x1, y1], true);
 }
 
-/** A small roundel of the side frames: gold ring, dark ground, gold rosette. */
+/** A small roundel of the side frames: gold, a thin black edge, a light-gold rosette. */
 function curtainSmallRoundel(p: Painter, cx: number, cy: number, r: number) {
-  p.disc(GOLD, cx, cy, r);
-  p.disc(GROUND, cx, cy, r - 0.03);
-  p.rosette(GOLD, cx, cy, r * 0.8, 8);
+  p.disc(GROUND, cx, cy, r);
+  p.disc(GOLD, cx, cy, r - 0.015);
+  p.rosette(GOLD_SOFT, cx, cy, r * 0.8, 8);
+  p.ring(GROUND, 0.01, cx, cy, r * 0.45);
   p.disc(GOLD_SOFT, cx, cy, r * 0.16);
 }
 
@@ -715,11 +716,9 @@ function paintSitara(p: Painter) {
   brightFill(p, x0, y0, x1, y1);
   p.frame(GROUND, 0.02, x0, y0, x1, y1);
 
-  // Side frames: a column of small roundels in a gold-framed dark strip.
+  // Side frames: a column of small gold roundels on the same gold field as
+  // the middle, so the edges are as bright as the centre (no dark border).
   const sideR = 0.14;
-  for (const sx of [x0 + 0.04, x1 - 0.04 - 2 * sideR]) {
-    p.rect(GROUND, sx - 0.015, y0 + 0.03, sx + 2 * sideR + 0.015, y1 - 0.03);
-  }
   for (let y = y0 + 0.2; y < y1 - 0.12; y += 2 * sideR + 0.03) {
     curtainSmallRoundel(p, x0 + 0.04 + sideR, y, sideR);
     curtainSmallRoundel(p, x1 - 0.04 - sideR, y, sideR);

@@ -60,14 +60,16 @@ export const KAABA = {
   /**
    * Door curtain (sitara): black cloth embroidered in gold, about 4 m wide,
    * hung from the belt to just above the foot of the door, open at the hem in
-   * an inverted V over its lower third.
+   * an inverted V reaching just under half its height.
    */
   sitara: {
     width: 4.0,
     hemAboveDoor: 0.2,
     /** Hangs flat on the wall like the rest of the kiswa. */
     standOff: 0.03,
-    openingFraction: 1 / 3,
+    /** Apex of the opening, as a fraction of the curtain's height from the hem
+     * (measured on a reference photo: 43%). */
+    openingFraction: 0.43,
     /** Black gap between the belt and the top of the curtain. */
     gapBelowBelt: 0.4,
   },

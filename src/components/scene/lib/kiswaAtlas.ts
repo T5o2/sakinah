@@ -69,14 +69,10 @@ const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
 /**
- * Silver thread: the curtain's second style, silver on black, used for its
- * three distinguished shapes (the arched row, the central cartouche and the
- * two large roundels). Seen from the mataf, the fine silver threads blend
- * with the black ground, so these shapes read as a dim silver-grey — about
- * as bright as the gold around them, not white (measured on photos).
+ * Dim silver thread: only small accents (the stars of the lattice) inside the
+ * curtain's three distinguished shapes, for a little depth. Never dominant.
  */
 const SILVER = surf("#7b7b78", 1, 0.45, 0.4, 0.8);
-const SILVER_BRIGHT = surf("#8f8f8b", 1, 0.42, 0.4, 0.9);
 /**
  * The door is the one gold that differs from the embroidery: a dark, warm
  * gold in solid polished metal. It stands apart by being smooth and
@@ -589,16 +585,16 @@ function curtainPanel(
 }
 
 /**
- * Fills `path` like a curtain panel: gold frame and dark ground, then either
- * fine gold ornament or, for the distinguished shapes, dense silver-white
- * ornament (white on black).
+ * Fills `path` like a curtain panel: gold frame, dark ground and the same
+ * fine gold ornament as the rest of the curtain. `accented` swaps the
+ * lattice's small stars for dim silver — a light touch of depth for the
+ * three distinguished shapes.
  */
 function curtainShape(
   p: Painter,
   path: (ctx: Ctx, inset: number) => void,
   bounds: [number, number, number, number],
-  style: "gold" | "silver" = "gold",
-  density = 2.4,
+  accented = false,
 ) {
   p.with(GOLD, (ctx) => {
     path(ctx, 0);
@@ -615,16 +611,13 @@ function curtainShape(
   });
   p.clipped(
     (ctx) => path(ctx, 0.065),
-    () =>
-      style === "gold"
-        ? goldFill(p, ...bounds, GOLD, GOLD_SOFT, 1.7)
-        : goldFill(p, ...bounds, SILVER, SILVER_BRIGHT, density),
+    () => goldFill(p, ...bounds, GOLD, accented ? SILVER : GOLD_SOFT, 1.7),
   );
 }
 
 /**
- * One of the four arched medallions: rounded above, a gold frame, a black
- * ground and dense silver-white ornament inside.
+ * One of the four arched medallions: rounded above, gold like the rest of
+ * the curtain, with dim silver accents.
  */
 function curtainArch(
   p: Painter,
@@ -644,13 +637,13 @@ function curtainArch(
     ctx.arc(cx, shoulder, w / 2 - inset, 0, Math.PI, false);
     ctx.closePath();
   };
-  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1], "silver", 1.2);
+  curtainShape(p, arch, [cx - w / 2, y0, cx + w / 2, y1], true);
 }
 
 /**
  * The central cartouche: a long horizontal panel with pointed ends (an
- * elongated hexagon), a gold frame, a black ground and dense silver-white
- * ornament inside.
+ * elongated hexagon), gold like the rest of the curtain, with dim silver
+ * accents.
  */
 function curtainCartouche(
   p: Painter,
@@ -673,7 +666,7 @@ function curtainCartouche(
     ctx.lineTo(x0 + tip + inset * 0.4, y0 + inset);
     ctx.closePath();
   };
-  curtainShape(p, hexagon, [x0, y0, x1, y1], "silver", 1.2);
+  curtainShape(p, hexagon, [x0, y0, x1, y1], true);
 }
 
 /** A small roundel of the side frames: gold ring, dark ground, gold rosette. */
@@ -685,15 +678,15 @@ function curtainSmallRoundel(p: Painter, cx: number, cy: number, r: number) {
 }
 
 /**
- * A large roundel beside the opening: an outer gold frame, a black ground
- * almost covered by dense silver-white ornament, and a gold disc at the centre.
+ * A large roundel beside the opening: gold like the rest of the curtain,
+ * with dim silver accents, and a gold disc at the centre.
  */
 function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
   const circle = (ctx: Ctx, inset: number) => {
     ctx.beginPath();
     ctx.arc(cx, cy, r - inset, 0, Math.PI * 2);
   };
-  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], "silver", 1.15);
+  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], true);
   p.disc(GROUND, cx, cy, r * 0.27);
   p.disc(GOLD, cx, cy, r * 0.24);
   p.rosette(GOLD_SOFT, cx, cy, r * 0.21, 8);
@@ -702,9 +695,8 @@ function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
 
 /**
  * The door curtain (sitara), close to the real one but geometric throughout,
- * with no letters. Two styles, as on the real curtain: gold on black for the
- * frames and ordinary panels, and silver-white on black for its three
- * distinguished shapes. From the top: a wide panel, a row of four arched
+ * with no letters: gold throughout, with dim silver accents inside its
+ * three distinguished shapes. From the top: a wide panel, a row of four arched
  * medallions, and a long pointed cartouche reaching down to the apex of the
  * inverted-V opening (just under half the curtain's height). Either side of
  * the opening: a large roundel, then small panels down to the hem. A column
@@ -760,7 +752,7 @@ function paintSitara(p: Painter) {
     curtainPanel(p, sx, sx + corner, apexTop, apexTop + corner);
   }
 
-  // 4. Either side of the opening: a large silver-white roundel, then small panels
+  // 4. Either side of the opening: a large roundel, then small panels
   //    whose inner edge follows the sloping side of the opening.
   /** Half-width of the opening at height y (zero at the apex). */
   const open = (yy: number) =>

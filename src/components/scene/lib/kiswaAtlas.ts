@@ -68,16 +68,17 @@ const DROP_COLUMN = { count: 5, width: 0.62, height: 0.64, step: 0.82 };
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
-/** Gold thread on the curtain: warmer, rougher, less mirror-like than metal. */
-const THREAD = surf("#b28a3e", 1, 0.48, 0.7, 0.75);
-const THREAD_SOFT = surf("#d6b26a", 1, 0.42, 0.7, 0.92);
-const THREAD_DEEP = surf("#5e4520", 1, 0.55, 0.65, 0.6);
-/** The door: polished gold metal, lighter and glossier than the embroidery. */
-// Not mirror-smooth: at night a mirror reflects the dark sky and reads darker
-// than the embroidery. A light, satin polish keeps it brighter than the thread.
-const POLISHED = surf("#f3d47e", 1, 0.24, 0.85, 0.75);
-const POLISHED_SOFT = surf("#fff1c4", 1, 0.2, 0.85, 0.9);
-const POLISHED_DEEP = surf("#cfa04a", 1, 0.28, 0.85, 0.6);
+/**
+ * The door is the one gold that differs from the embroidery: a yellower,
+ * lighter, smoother metal. (Not fully metallic: at night a pure metal mirrors
+ * the dark sky and reads darker than the embroidery; a share of diffuse
+ * keeps it bright under the floodlights.) The curtain uses GOLD / GOLD_SOFT, exactly like
+ * the belt and the panels below it, because it is embroidery on the same
+ * kiswa cloth.
+ */
+const DOOR_METAL = surf("#ffde6e", 1, 0.26, 0.62, 0.75);
+const DOOR_METAL_SOFT = surf("#fff3c6", 1, 0.22, 0.62, 0.9);
+const DOOR_METAL_DEEP = surf("#e2b24a", 1, 0.3, 0.62, 0.6);
 
 /** Door and curtain, in metres from the Black Stone corner along the door wall. */
 const DOOR_X = KAABA.door.fromBlackStoneCorner;
@@ -521,8 +522,11 @@ function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
   });
 }
 
-/** A curtain register: gold throughout, edged by a hair-thin black line. */
-function sitaraPanel(
+/**
+ * A curtain panel: belt gold throughout — a light-gold rim and a gold field
+ * with the light-gold lattice — edged by a hair-thin black line.
+ */
+function curtainPanel(
   p: Painter,
   x0: number,
   x1: number,
@@ -530,35 +534,98 @@ function sitaraPanel(
   y1: number,
 ) {
   p.rect(GROUND, x0, y0, x1, y1);
-  p.rect(THREAD_SOFT, x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02);
-  p.rect(THREAD, x0 + 0.055, y0 + 0.055, x1 - 0.055, y1 - 0.055);
-  goldFill(
-    p,
-    x0 + 0.07,
-    y0 + 0.07,
-    x1 - 0.07,
-    y1 - 0.07,
-    THREAD_DEEP,
-    THREAD_SOFT,
-  );
+  p.rect(GOLD_SOFT, x0 + 0.02, y0 + 0.02, x1 - 0.02, y1 - 0.02);
+  p.rect(GOLD, x0 + 0.05, y0 + 0.05, x1 - 0.05, y1 - 0.05);
+  goldFill(p, x0 + 0.06, y0 + 0.06, x1 - 0.06, y1 - 0.06, GOLD_SOFT, GOLD_SOFT);
 }
 
-/** A curtain roundel: gold, with a hair-thin black ring at its edge. */
-function sitaraRoundel(p: Painter, cx: number, cy: number, r: number) {
+/** A curtain roundel: belt gold, a thin black edge, a rosette inside. */
+function curtainRoundel(p: Painter, cx: number, cy: number, r: number) {
   p.disc(GROUND, cx, cy, r);
-  p.disc(THREAD_SOFT, cx, cy, r - 0.02);
-  p.disc(THREAD, cx, cy, r - 0.05);
-  p.rosette(THREAD_DEEP, cx, cy, r * 0.85, 12);
-  p.ring(THREAD_SOFT, r * 0.06, cx, cy, r * 0.45);
-  p.disc(THREAD_SOFT, cx, cy, r * 0.14);
+  p.disc(GOLD_SOFT, cx, cy, r - 0.02);
+  p.disc(GOLD, cx, cy, r - 0.05);
+  p.rosette(GOLD_SOFT, cx, cy, r * 0.8, 12);
+  p.ring(GROUND, Math.max(0.012, r * 0.03), cx, cy, r * 0.5);
+  p.star(GOLD_SOFT, r * 0.05, cx, cy, r * 0.32);
+}
+
+/** One of the four repeated medallions: a pointed arch, gold, thin black edge. */
+function curtainArch(
+  p: Painter,
+  cx: number,
+  y0: number,
+  y1: number,
+  w: number,
+) {
+  const archPath = (ctx: Ctx, inset: number) => {
+    const x0 = cx - w / 2 + inset;
+    const x1 = cx + w / 2 - inset;
+    const shoulder = y1 - w * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0 + inset);
+    ctx.lineTo(x1, y0 + inset);
+    ctx.lineTo(x1, shoulder);
+    ctx.quadraticCurveTo(x1, y1 - inset - w * 0.1, cx, y1 - inset);
+    ctx.quadraticCurveTo(x0, y1 - inset - w * 0.1, x0, shoulder);
+    ctx.closePath();
+  };
+  p.with(GROUND, (ctx) => {
+    archPath(ctx, 0);
+    ctx.fill();
+  });
+  p.with(GOLD_SOFT, (ctx) => {
+    archPath(ctx, 0.02);
+    ctx.fill();
+  });
+  p.with(GOLD, (ctx) => {
+    archPath(ctx, 0.05);
+    ctx.fill();
+  });
+  const cy = y0 + (y1 - y0) * 0.42;
+  p.rosette(GOLD_SOFT, cx, cy, w * 0.36, 8);
+  p.star(GOLD_SOFT, 0.02, cx, cy, w * 0.14);
 }
 
 /**
- * The door curtain (sitara): embroidered almost entirely in gold, as on the
- * real curtain — bordered registers of gold panels and roundels, one dark
- * cartouche at its heart for contrast, and legs of stacked panels either side
- * of the inverted-V opening over its lower third (the V is cut in the
- * geometry). A black gap separates its top from the belt.
+ * The large oval at the heart of the curtain (where the real one has its
+ * main inscription): gold with a dense light-gold lattice, thin black edge.
+ */
+function curtainOval(
+  p: Painter,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+) {
+  const oval = (ctx: Ctx, inset: number) => {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, rx - inset, ry - inset, 0, 0, Math.PI * 2);
+  };
+  p.with(GROUND, (ctx) => {
+    oval(ctx, 0);
+    ctx.fill();
+  });
+  p.with(GOLD_SOFT, (ctx) => {
+    oval(ctx, 0.02);
+    ctx.fill();
+  });
+  p.with(GOLD, (ctx) => {
+    oval(ctx, 0.06);
+    ctx.fill();
+  });
+  p.clipped(
+    (ctx) => oval(ctx, 0.08),
+    () => goldFill(p, cx - rx, cy - ry, cx + rx, cy + ry, GOLD_SOFT, GOLD_SOFT),
+  );
+}
+
+/**
+ * The door curtain (sitara): embroidery on the kiswa cloth in the belt's own
+ * gold, covering ~90% of it; black shows only as hair-thin lines. From the
+ * top: a wide panel, a row of four arched medallions, a large central oval,
+ * a band, then two large roundels either side of the inverted-V opening and
+ * small panels down each leg to the hem. A column of small roundels runs
+ * down each side edge. Geometric throughout — no letters.
  */
 function paintSitara(p: Painter) {
   const cx = DOOR_X;
@@ -566,101 +633,75 @@ function paintSitara(p: Painter) {
   const x1 = SITARA_X1;
   const y0 = SITARA_HEM;
   const y1 = SITARA_TOP;
+  const { width: dw } = KAABA.door;
 
-  // Gold almost throughout (~90%): black only as hair-thin lines between
-  // the ornaments. A border of small roundels runs round the edge.
-  p.rect(THREAD, x0, y0, x1, y1);
+  // Gold field, hair-thin black edges, and the side frames of small roundels.
+  p.rect(GOLD, x0, y0, x1, y1);
   p.frame(GROUND, 0.02, x0, y0, x1, y1);
-  p.frame(GROUND, 0.02, x0 + 0.33, y0 + 0.33, x1 - 0.33, y1 - 0.33);
-  for (let y = y0 + 0.3; y < y1 - 0.15; y += 0.42) {
-    sitaraRoundel(p, x0 + 0.17, y, 0.12);
-    sitaraRoundel(p, x1 - 0.17, y, 0.12);
-  }
-  for (let x = x0 + 0.55; x < x1 - 0.4; x += 0.42) {
-    sitaraRoundel(p, x, y1 - 0.17, 0.12);
+  p.frame(GROUND, 0.02, x0 + 0.33, y0 + 0.02, x1 - 0.33, y1 - 0.02);
+  for (let y = y0 + 0.24; y < y1 - 0.1; y += 0.34) {
+    curtainRoundel(p, x0 + 0.17, y, 0.13);
+    curtainRoundel(p, x1 - 0.17, y, 0.13);
   }
 
-  const ix0 = x0 + 0.4;
-  const ix1 = x1 - 0.4;
-  // Registers from the top.
-  sitaraPanel(p, ix0, ix1, y1 - 0.85, y1 - 0.38);
-  const r2 = y1 - 1.35;
-  sitaraPanel(p, ix0, ix1, r2 - 0.42, r2 + 0.42);
-  for (const k of [-1, 0, 1])
-    sitaraRoundel(p, cx + k * ((ix1 - ix0) / 3), r2, 0.32);
-  // The cartouche at the heart (where the real curtain's main panel is):
-  // deep gold, edged by a thin black line.
-  const cy = r2 - 1.05;
-  const ch = 0.5;
-  p.with(THREAD_SOFT, (ctx) => {
-    ctx.beginPath();
-    ctx.moveTo(ix0, cy);
-    ctx.lineTo(ix0 + ch, cy + ch);
-    ctx.lineTo(ix1 - ch, cy + ch);
-    ctx.lineTo(ix1, cy);
-    ctx.lineTo(ix1 - ch, cy - ch);
-    ctx.lineTo(ix0 + ch, cy - ch);
-    ctx.closePath();
-    ctx.fill();
-  });
-  p.with(GROUND, (ctx) => {
-    const k = 0.05;
-    ctx.beginPath();
-    ctx.moveTo(ix0 + k * 1.4, cy);
-    ctx.lineTo(ix0 + ch + k * 0.4, cy + ch - k);
-    ctx.lineTo(ix1 - ch - k * 0.4, cy + ch - k);
-    ctx.lineTo(ix1 - k * 1.4, cy);
-    ctx.lineTo(ix1 - ch - k * 0.4, cy - ch + k);
-    ctx.lineTo(ix0 + ch + k * 0.4, cy - ch + k);
-    ctx.closePath();
-    ctx.fill();
-  });
-  p.with(THREAD_DEEP, (ctx) => {
-    const k = 0.08;
-    ctx.beginPath();
-    ctx.moveTo(ix0 + k * 1.4, cy);
-    ctx.lineTo(ix0 + ch + k * 0.4, cy + ch - k);
-    ctx.lineTo(ix1 - ch - k * 0.4, cy + ch - k);
-    ctx.lineTo(ix1 - k * 1.4, cy);
-    ctx.lineTo(ix1 - ch - k * 0.4, cy - ch + k);
-    ctx.lineTo(ix0 + ch + k * 0.4, cy - ch + k);
-    ctx.closePath();
-    ctx.fill();
-  });
-  goldFill(
-    p,
-    ix0 + ch,
-    cy - ch + 0.12,
-    ix1 - ch,
-    cy + ch - 0.12,
-    THREAD,
-    THREAD_SOFT,
-  );
-  // A band below it, then the top of the legs.
-  const r4 = cy - ch - 0.35;
-  sitaraPanel(p, ix0, ix1, r4 - 0.2, r4 + 0.2);
-  const midTop = r4 - 0.3;
-  const midBottom = SITARA_APEX + 0.1;
-  if (midTop - midBottom > 0.3) sitaraPanel(p, ix0, ix1, midBottom, midTop);
+  const ix0 = x0 + 0.38;
+  const ix1 = x1 - 0.38;
+  const iw = ix1 - ix0;
 
-  // The legs either side of the opening: a roundel, then stacked panels.
-  const legW = (x1 - x0 - KAABA.door.width) / 2 - 0.45;
-  for (const lx of [x0 + 0.37 + legW / 2, x1 - 0.37 - legW / 2]) {
-    let y = SITARA_APEX - 0.05;
-    sitaraRoundel(p, lx, y - 0.32, Math.min(0.3, legW / 2));
-    y -= 0.72;
-    while (y - 0.42 > y0 + 0.36) {
-      sitaraPanel(p, lx - legW / 2, lx + legW / 2, y - 0.42, y);
-      y -= 0.52;
+  // 1. Wide panel at the top.
+  let y = y1 - 0.08;
+  curtainPanel(p, ix0, ix1, y - 0.6, y);
+  y -= 0.68;
+
+  // 2. A row of four repeated arched medallions.
+  const slot = iw / 4;
+  for (let k = 0; k < 4; k++) {
+    curtainArch(p, ix0 + slot * (k + 0.5), y - 0.95, y, slot - 0.08);
+  }
+  y -= 1.03;
+
+  // 3. The large oval, between two thin panels.
+  curtainPanel(p, ix0, ix1, y - 0.22, y);
+  y -= 0.28;
+  const ovalH = 1.15;
+  curtainOval(p, cx, y - ovalH / 2, iw / 2, ovalH / 2);
+  y -= ovalH + 0.06;
+  // Band down to just above the apex of the opening.
+  const apexTop = SITARA_APEX + 0.06;
+  if (y - apexTop > 0.15) curtainPanel(p, ix0, ix1, apexTop, y);
+
+  // 4. Legs: a large roundel each side of the opening, then small panels to the hem.
+  const legIn = dw / 2 + 0.1;
+  for (const side of [-1, 1] as const) {
+    const a = cx + side * legIn;
+    const b = side < 0 ? ix0 : ix1;
+    const lx0 = Math.min(a, b);
+    const lx1 = Math.max(a, b);
+    const r = Math.min(0.42, (lx1 - lx0) / 2 - 0.02);
+    const ry = SITARA_APEX - 0.08 - r;
+    curtainRoundel(p, (lx0 + lx1) / 2, ry, r);
+    let py = ry - r - 0.08;
+    while (py - 0.34 > y0 + 0.06) {
+      curtainPanel(p, lx0, lx1, py - 0.34, py);
+      py -= 0.4;
     }
   }
-  // Gold hem along both edges of the opening.
-  p.with(THREAD_SOFT, (ctx) => {
-    ctx.lineWidth = 0.1;
+
+  // A light-gold hem along both edges of the opening, edged in black.
+  p.with(GROUND, (ctx) => {
+    ctx.lineWidth = 0.12;
     ctx.beginPath();
-    ctx.moveTo(cx - KAABA.door.width / 2, y0);
+    ctx.moveTo(cx - dw / 2, y0);
     ctx.lineTo(cx, SITARA_APEX);
-    ctx.lineTo(cx + KAABA.door.width / 2, y0);
+    ctx.lineTo(cx + dw / 2, y0);
+    ctx.stroke();
+  });
+  p.with(GOLD_SOFT, (ctx) => {
+    ctx.lineWidth = 0.08;
+    ctx.beginPath();
+    ctx.moveTo(cx - dw / 2, y0);
+    ctx.lineTo(cx, SITARA_APEX);
+    ctx.lineTo(cx + dw / 2, y0);
     ctx.stroke();
   });
 }
@@ -687,11 +728,11 @@ function paintDoor(p: Painter) {
       ctx.closePath();
     },
     () => {
-      p.rect(POLISHED, x0, db, x1, top);
-      p.frame(POLISHED_DEEP, 0.05, x0, db, x1, top);
-      p.rect(POLISHED_DEEP, cx - 0.035, db, cx + 0.035, top);
+      p.rect(DOOR_METAL, x0, db, x1, top);
+      p.frame(DOOR_METAL_DEEP, 0.05, x0, db, x1, top);
+      p.rect(DOOR_METAL_DEEP, cx - 0.035, db, cx + 0.035, top);
       p.rect(
-        POLISHED_SOFT,
+        DOOR_METAL_SOFT,
         cx - 0.07,
         db + dh * 0.42,
         cx + 0.07,
@@ -699,24 +740,24 @@ function paintDoor(p: Painter) {
       );
       for (const lx of [x0 + dw / 4, cx + dw / 4]) {
         p.frame(
-          POLISHED_DEEP,
+          DOOR_METAL_DEEP,
           0.025,
           lx - dw / 4 + 0.09,
           db + 0.12,
           lx + dw / 4 - 0.09,
           db + 0.55,
         );
-        p.ring(POLISHED_DEEP, 0.03, lx, db + dh * 0.33, dw * 0.16);
-        p.rosette(POLISHED_SOFT, lx, db + dh * 0.33, dw * 0.14, 8);
+        p.ring(DOOR_METAL_DEEP, 0.03, lx, db + dh * 0.33, dw * 0.16);
+        p.rosette(DOOR_METAL_SOFT, lx, db + dh * 0.33, dw * 0.14, 8);
         p.frame(
-          POLISHED_DEEP,
+          DOOR_METAL_DEEP,
           0.025,
           lx - dw / 4 + 0.09,
           db + dh * 0.5,
           lx + dw / 4 - 0.09,
           db + dh * 0.72,
         );
-        p.ring(POLISHED_DEEP, 0.03, lx, db + dh * 0.82, dw * 0.12);
+        p.ring(DOOR_METAL_DEEP, 0.03, lx, db + dh * 0.82, dw * 0.12);
       }
     },
   );

@@ -69,16 +69,15 @@ const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
 /**
- * The door is the one gold that differs from the embroidery: a yellower,
- * lighter, smoother metal. (Not fully metallic: at night a pure metal mirrors
- * the dark sky and reads darker than the embroidery; a share of diffuse
- * keeps it bright under the floodlights.) The curtain uses GOLD / GOLD_SOFT, exactly like
- * the belt and the panels below it, because it is embroidery on the same
- * kiswa cloth.
+ * The door is the one gold that differs from the embroidery: a dark, warm
+ * gold in solid polished metal. It stands apart by being smooth and
+ * reflective, not by being lighter. The curtain uses GOLD / GOLD_SOFT,
+ * exactly like the belt and the panels below it, because it is embroidery on
+ * the same kiswa cloth.
  */
-const DOOR_METAL = surf("#ffde6e", 1, 0.26, 0.62, 0.75);
-const DOOR_METAL_SOFT = surf("#fff3c6", 1, 0.22, 0.62, 0.9);
-const DOOR_METAL_DEEP = surf("#e2b24a", 1, 0.3, 0.62, 0.6);
+const DOOR_METAL = surf("#d9a866", 1, 0.22, 0.9, 0.75);
+const DOOR_METAL_SOFT = surf("#efcb8c", 1, 0.2, 0.9, 0.9);
+const DOOR_METAL_DEEP = surf("#a87a42", 1, 0.26, 0.9, 0.6);
 
 /** Door and curtain, in metres from the Black Stone corner along the door wall. */
 const DOOR_X = KAABA.door.fromBlackStoneCorner;
@@ -297,6 +296,7 @@ function goldFill(
   y1: number,
   line: Surface = GOLD,
   accent: Surface = GOLD_SOFT,
+  weight = 1,
 ) {
   const h = y1 - y0;
   const w = x1 - x0;
@@ -309,7 +309,7 @@ function goldFill(
     () => {
       const span = Math.max(w, h);
       p.with(line, (ctx) => {
-        ctx.lineWidth = cell * 0.09;
+        ctx.lineWidth = cell * 0.09 * weight;
         ctx.beginPath();
         for (let x = x0 - span; x < x1 + span; x += cell) {
           ctx.moveTo(x, y0);
@@ -323,11 +323,39 @@ function goldFill(
         const offset = row % 2 === 0 ? 0 : cell / 2;
         for (let x = x0 + offset; x <= x1; x += cell) {
           p.star(accent, cell * 0.07, x + cell / 2, y, cell * 0.26);
-          p.disc(line, x, y, cell * 0.07);
+          p.disc(line, x, y, cell * 0.07 * weight);
         }
       }
     },
   );
+}
+
+/**
+ * Bright embroidery fill, used by the belt, the panels below it and the
+ * curtain: a gold ground carrying the same lattice as before, now drawn as
+ * hair-thin black lines with light-gold stars — about 85% gold, as on the
+ * real kiswa, where the gold covers almost everything.
+ */
+function brightFill(
+  p: Painter,
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+) {
+  p.rect(GOLD, x0, y0, x1, y1);
+  goldFill(p, x0, y0, x1, y1, GROUND, GOLD_SOFT, 0.55);
+}
+
+/** A bright roundel: gold, a thin black edge and ring, a light-gold rosette. */
+function brightRoundel(p: Painter, cx: number, cy: number, r: number) {
+  p.disc(GROUND, cx, cy, r);
+  p.disc(GOLD_SOFT, cx, cy, r - 0.015);
+  p.disc(GOLD, cx, cy, r - 0.04);
+  p.rosette(GOLD_SOFT, cx, cy, r * 0.82, 12);
+  p.ring(GROUND, Math.max(0.01, r * 0.025), cx, cy, r * 0.5);
+  p.star(GOLD_SOFT, Math.max(0.012, r * 0.05), cx, cy, r * 0.32);
+  p.disc(GOLD_SOFT, cx, cy, r * 0.1);
 }
 
 /** A roundel: gold ring on black with a rosette. Used sparingly, near corners. */
@@ -392,7 +420,13 @@ function paintBelt(p: Painter, L: number) {
     const x0 = i * step + 0.04;
     const x1 = (i + 1) * step - 0.04;
     p.rect(GROUND, x0, BELT_BOTTOM + 0.08, x1, BELT_TOP - 0.08);
-    goldFill(p, x0 + 0.04, BELT_BOTTOM + 0.11, x1 - 0.04, BELT_TOP - 0.11);
+    brightFill(
+      p,
+      x0 + 0.015,
+      BELT_BOTTOM + 0.095,
+      x1 - 0.015,
+      BELT_TOP - 0.095,
+    );
   }
   // Thin separators between the panels.
   for (let i = 1; i < count; i++) {
@@ -413,8 +447,15 @@ function panel(p: Painter, cx: number, width: number) {
   const y0 = PANEL_TOP - PANEL_H;
   p.rect(GOLD, x0, y0, x1, PANEL_TOP);
   p.rect(GROUND, x0 + 0.05, y0 + 0.05, x1 - 0.05, PANEL_TOP - 0.05);
-  p.frame(GOLD_SOFT, 0.018, x0 + 0.09, y0 + 0.09, x1 - 0.09, PANEL_TOP - 0.09);
-  goldFill(p, x0 + 0.12, y0 + 0.12, x1 - 0.12, PANEL_TOP - 0.12);
+  p.frame(
+    GOLD_SOFT,
+    0.018,
+    x0 + 0.065,
+    y0 + 0.065,
+    x1 - 0.065,
+    PANEL_TOP - 0.065,
+  );
+  brightFill(p, x0 + 0.085, y0 + 0.085, x1 - 0.085, PANEL_TOP - 0.085);
 }
 
 type BelowBeltItem =
@@ -523,9 +564,8 @@ function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
 }
 
 /**
- * A curtain panel, drawn exactly like a belt panel: a thin gold rim, black
- * cloth inside, and the same gold lattice over it. The contrast is gold on
- * black, as on the rest of the kiswa.
+ * A curtain panel, drawn exactly like a belt panel: a gold rim, a thin
+ * black line, and the bright embroidery fill.
  */
 function curtainPanel(
   p: Painter,
@@ -536,10 +576,10 @@ function curtainPanel(
 ) {
   p.rect(GOLD, x0, y0, x1, y1);
   p.rect(GROUND, x0 + 0.035, y0 + 0.035, x1 - 0.035, y1 - 0.035);
-  goldFill(p, x0 + 0.05, y0 + 0.05, x1 - 0.05, y1 - 0.05);
+  brightFill(p, x0 + 0.05, y0 + 0.05, x1 - 0.05, y1 - 0.05);
 }
 
-/** Fills `path` like a belt panel: gold rim, black inside, gold lattice. */
+/** Fills `path` like a belt panel: gold rim, thin black line, bright fill. */
 function curtainShape(
   p: Painter,
   path: (ctx: Ctx, inset: number) => void,
@@ -555,7 +595,7 @@ function curtainShape(
   });
   p.clipped(
     (ctx) => path(ctx, 0.05),
-    () => goldFill(p, ...bounds),
+    () => brightFill(p, ...bounds),
   );
 }
 
@@ -619,11 +659,14 @@ function paintSitara(p: Painter) {
   // Black cloth with a gold edge, like the belt's rims.
   p.rect(GROUND, x0, y0, x1, y1);
   p.frame(GOLD, 0.035, x0, y0, x1, y1);
-  // Side frames: a close column of small roundels.
+  // Side frames: a close column of small roundels on a gold strip.
   const sideR = 0.14;
+  for (const sx of [x0 + 0.04, x1 - 0.04 - 2 * sideR]) {
+    brightFill(p, sx, y0 + 0.04, sx + 2 * sideR, y1 - 0.04);
+  }
   for (let y = y0 + 0.2; y < y1 - 0.12; y += 2 * sideR + gap) {
-    roundel(p, x0 + 0.04 + sideR, y, sideR);
-    roundel(p, x1 - 0.04 - sideR, y, sideR);
+    brightRoundel(p, x0 + 0.04 + sideR, y, sideR);
+    brightRoundel(p, x1 - 0.04 - sideR, y, sideR);
   }
 
   const ix0 = x0 + 0.04 + 2 * sideR + gap;
@@ -635,7 +678,8 @@ function paintSitara(p: Painter) {
   curtainPanel(p, ix0, ix1, y - 0.55, y);
   y -= 0.55 + gap;
 
-  // 2. A row of four arched medallions.
+  // 2. A row of four arched medallions, on gold so their corners are not black.
+  brightFill(p, ix0, y - 0.95, ix1, y);
   const slot = iw / 4;
   for (let k = 0; k < 4; k++) {
     curtainArch(p, ix0 + slot * (k + 0.5), y - 0.95, y, slot - gap);
@@ -646,6 +690,7 @@ function paintSitara(p: Painter) {
   const ovalH = 1.2;
   curtainPanel(p, ix0, ix1, y - 0.2, y);
   y -= 0.2 + gap;
+  brightFill(p, ix0, y - ovalH, ix1, y);
   curtainOval(p, cx, y - ovalH / 2, iw / 2, ovalH / 2);
   for (const sx of [ix0, ix1 - 0.32]) {
     curtainPanel(p, sx, sx + 0.32, y - 0.32, y);
@@ -653,40 +698,63 @@ function paintSitara(p: Painter) {
   }
   y -= ovalH + gap;
 
-  // 4. A row of small panels down to just above the apex of the opening.
+  // 4. Rows of small panels, sized to fill the space down to the apex exactly.
   const apexTop = SITARA_APEX + gap;
-  for (let row = y; row - 0.3 >= apexTop - 0.001; row -= 0.3 + gap) {
-    const cells = 3;
-    const cw = (iw - gap * (cells - 1)) / cells;
+  const rows = Math.max(1, Math.round((y - apexTop + gap) / (0.3 + gap)));
+  const rowH = (y - apexTop - gap * (rows - 1)) / rows;
+  const cells = 3;
+  const cw = (iw - gap * (cells - 1)) / cells;
+  for (let r = 0; r < rows; r++) {
+    const top = y - r * (rowH + gap);
     for (let k = 0; k < cells; k++) {
       const cx0 = ix0 + k * (cw + gap);
-      curtainPanel(p, cx0, cx0 + cw, row - 0.3, row);
+      curtainPanel(p, cx0, cx0 + cw, top - rowH, top);
     }
   }
 
-  // 5. Legs: a large roundel either side of the opening, then small panels
-  // whose inner edge follows the sloping side of the opening, so only a thin
-  // black line separates them from it.
+  // 5. Legs: each is gold behind (following the sloping side of the
+  // opening), with a large roundel filling its width, then small panels down
+  // to the hem; black shows only as thin lines.
   /** Half-width of the opening at height y (zero at the apex). */
   const open = (yy: number) =>
     ((dw / 2) * (SITARA_APEX - Math.min(yy, SITARA_APEX))) / (SITARA_APEX - y0);
   for (const side of [-1, 1] as const) {
     const outer = side < 0 ? ix0 : ix1;
-    const r = 0.42;
-    const ry = SITARA_APEX - gap - r;
-    const rIn = open(ry - r) + gap + 0.04;
-    const rcx = cx + side * (rIn + r);
-    roundel(p, rcx, ry, r);
+    const leg = (ctx: Ctx, inset: number) => {
+      const top = SITARA_APEX - gap - inset;
+      const bottom = y0 + 0.04 + inset;
+      const inTop = cx + side * (open(top) + gap + inset);
+      const inBottom = cx + side * (open(bottom) + gap + inset);
+      const out = outer - side * inset;
+      ctx.beginPath();
+      ctx.moveTo(inTop, top);
+      ctx.lineTo(out, top);
+      ctx.lineTo(out, bottom);
+      ctx.lineTo(inBottom, bottom);
+      ctx.closePath();
+    };
+    curtainShape(p, leg, [
+      Math.min(cx, outer),
+      y0,
+      Math.max(cx, outer),
+      SITARA_APEX,
+    ]);
+
+    // Roundel as wide as the leg allows at its height.
+    let r = 0.5;
+    for (let k = 0; k < 3; k++) {
+      const inner = open(SITARA_APEX - gap - 2 * r) + gap + 0.05;
+      r = (Math.abs(outer - cx) - inner - 0.05) / 2;
+    }
+    const inner = open(SITARA_APEX - gap - 2 * r) + gap + 0.05;
+    const ry = SITARA_APEX - gap - 0.05 - r;
+    brightRoundel(p, cx + side * (inner + r), ry, r);
+
     let py = ry - r - gap;
-    while (py - 0.3 > y0 + 0.04) {
-      const inner = cx + side * (open(py - 0.3) + gap + 0.04);
-      curtainPanel(
-        p,
-        Math.min(inner, outer),
-        Math.max(inner, outer),
-        py - 0.3,
-        py,
-      );
+    while (py - 0.3 > y0 + 0.08) {
+      const pIn = cx + side * (open(py - 0.3) + gap + 0.05);
+      const pOut = outer - side * 0.05;
+      curtainPanel(p, Math.min(pIn, pOut), Math.max(pIn, pOut), py - 0.3, py);
       py -= 0.3 + gap;
     }
   }

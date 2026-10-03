@@ -124,11 +124,10 @@ export const BELOW_BELT_GAP = 0.15;
 /**
  * Black Stone corner drop column: drops evenly spaced from right under the
  * corner shield down to the stones — two on the black kiswa and two on the
- * white cloth, none crossing the hem between them. Whole drops on the door
- * wall, beside the corner edge: folded over the edge, only half of each
- * showed from the mataf (the south-east wall faces away from the default view).
+ * white cloth, none crossing the hem between them. Folded over the corner
+ * edge itself, as at the Haram: half of each drop on each wall.
  */
-const DROP_COLUMN = { count: 4, bottomMargin: 0.05, fromEdge: 0.03 };
+const DROP_COLUMN = { count: 4, bottomMargin: 0.05 };
 /** The belt is divided into panels about this long, by thin separators. */
 const BELT_PANEL_M = 2.4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
@@ -640,19 +639,18 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
 
 /**
  * Black Stone corner: under the corner shield, a column of drops starting
- * right under it at one even spacing (see DROP_COLUMN), whole on the door
- * wall just beside the corner edge (x = 0).
+ * right under it at one even spacing (see DROP_COLUMN). Painted centred on
+ * the corner edge (`edgeX`), so half of each drop falls on each wall.
  */
-function paintDropColumn(p: Painter) {
-  const { count, bottomMargin, fromEdge } = DROP_COLUMN;
+function paintDropColumn(p: Painter, edgeX: number) {
+  const { count, bottomMargin } = DROP_COLUMN;
   const height = DROP.height;
-  const cx = fromEdge + DROP_WIDTH / 2;
   // One equal gap above every drop, the first right under the shield.
   const top = CORNER_SHIELD.bottom;
   const bottom = KAABA.stoneTop + bottomMargin;
   const gap = (top - bottom - count * height) / count;
   for (let i = 0; i < count; i++) {
-    drop(p, cx, top - gap - height / 2 - i * (height + gap));
+    drop(p, edgeX, top - gap - height / 2 - i * (height + gap));
   }
 }
 
@@ -1070,9 +1068,9 @@ function paintWall(p: Painter, wall: Wall) {
   const hw = CORNER_SHIELD.halfWidth;
   switch (wall.id) {
     case "door":
-      // Black Stone corner on the left: the drop column; the curtain; then
-      // one long panel between two drops towards the Iraqi corner.
-      paintDropColumn(p);
+      // Black Stone corner on the left: its half of the drop column; the
+      // curtain; then one long panel between two drops towards the Iraqi corner.
+      paintDropColumn(p, 0);
       belowBelt(p, belowBeltRun(SITARA_X1, L - hw, 1));
       paintSitara(p);
       paintDoor(p);
@@ -1087,10 +1085,12 @@ function paintWall(p: Painter, wall: Wall) {
       paintYemeniArch(p, L, -1);
       break;
     case "southEast":
-      // Yemeni corner at the left end; Black Stone corner at the right.
+      // Yemeni corner at the left end; Black Stone corner at the right, with
+      // the other half of its drop column.
       belowBelt(p, belowBeltRun(hw, L - hw, 2));
       paintYemeniBand(p, 0, 1);
       paintYemeniArch(p, 0, 1);
+      paintDropColumn(p, L);
       break;
   }
   // The four corner shields: each wall paints its half of the two at its ends.

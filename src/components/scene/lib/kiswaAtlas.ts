@@ -91,25 +91,36 @@ const SITARA_X1 = DOOR_X + KAABA.sitara.width / 2;
 const PANEL_TOP = BELT_BOTTOM - 0.3;
 const PANEL_H = 0.6;
 const PANEL_CY = PANEL_TOP - PANEL_H / 2;
-/** Width ÷ height of every embroidered drop, so one shape is used everywhere. */
-const DROP_ASPECT = 0.69;
-/** Drops between the panels below the belt: a little shorter than a panel. */
-const BELT_DROP_H = PANEL_H * 0.9;
 /**
- * The shield at each of the four corners, just under the belt: squarish with
- * a pointed top, centred on the corner edge (half on each wall).
+ * The embroidered drop, one size everywhere (reference photo 42): 0.8 m tall,
+ * between the old small (0.54 m) and large (1.05 m) drops.
+ */
+const DROP = { height: 0.8, aspect: 0.62 };
+/**
+ * The corner shield (reference photos 40–41): straight sides, a top curving
+ * up to a pointed tip, centred on the corner edge just under the belt.
+ * Measured on photo 40: about 1.08 × the belt's height; balanced width.
  */
 const CORNER_SHIELD = {
-  halfWidth: 0.35,
-  top: BELT_BOTTOM - 0.06,
-  bottom: PANEL_CY - 0.3,
+  halfWidth: 0.54,
+  top: BELT_BOTTOM - 0.04,
+  bottom: BELT_BOTTOM - 0.04 - KAABA.beltHeight * 1.08,
+  /** Share of the height taken by the pointed top. */
+  pointShare: 0.3,
 };
+/**
+ * Where the drops between panels sit is fixed (approved layout): midway
+ * between each end panel and this distance from the corner edge.
+ */
+const DROP_LAYOUT_EDGE = 0.35;
+/** The door wall's last panel is shortened by this much (approved), to fit a drop. */
+const DOOR_WALL_TRIM = 0.28;
 /**
  * Black Stone corner drop column: drops evenly spaced from right under the
  * corner shield down to the stones — two on the black kiswa and two on the
  * white cloth, none crossing the hem between them.
  */
-const DROP_COLUMN = { count: 4, height: 1.05, bottomMargin: 0.05 };
+const DROP_COLUMN = { count: 4, bottomMargin: 0.05 };
 /** The belt is divided into panels about this long, by thin separators. */
 const BELT_PANEL_M = 2.4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
@@ -372,53 +383,89 @@ function brightFill(
   goldFill(p, x0, y0, x1, y1, GROUND, GOLD_SOFT, 0.55);
 }
 
-/** A pointed oval: round below, drawn to a point above. */
-function dropPath(ctx: Ctx, cx: number, cy: number, w: number, h: number) {
-  const top = cy + h / 2;
-  const bottom = cy - h / 2;
+/**
+ * Outline of the drop (photo 42): a wide round bottom — a full circle as wide
+ * as the drop — rising into a short, slightly concave pointed top. `waves`
+ * scallops the round part like the embroidered rim.
+ */
+function dropPath(
+  ctx: Ctx,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  waves = 0,
+) {
+  const R = w / 2;
+  const yc = cy - h / 2 + R;
+  const tip = cy + h / 2;
+  const join = (35 * Math.PI) / 180;
+  const jx = R * Math.cos(join);
+  const jy = yc + R * Math.sin(join);
   ctx.beginPath();
-  ctx.moveTo(cx, top);
+  ctx.moveTo(cx, tip);
+  // Down the right side of the point (concave), into the circle.
   ctx.bezierCurveTo(
-    cx + w * 0.62,
-    cy + h * 0.1,
-    cx + w * 0.62,
-    bottom,
-    cx,
-    bottom,
+    cx + R * 0.12,
+    tip - (tip - jy) * 0.45,
+    cx + jx * 1.02,
+    jy + R * 0.35,
+    cx + jx,
+    jy,
   );
+  // Round the bottom, right to left, with scallops.
+  const n = 72;
+  for (let i = 1; i <= n; i++) {
+    const a = join - (i / n) * (Math.PI + 2 * join);
+    const r = R * (1 + waves * Math.cos(a * 16));
+    ctx.lineTo(cx + r * Math.cos(a), yc + r * Math.sin(a));
+  }
+  // Up the left side of the point, mirrored.
   ctx.bezierCurveTo(
-    cx - w * 0.62,
-    bottom,
-    cx - w * 0.62,
-    cy + h * 0.1,
+    cx - jx * 1.02,
+    jy + R * 0.35,
+    cx - R * 0.12,
+    tip - (tip - jy) * 0.45,
     cx,
-    top,
+    tip,
   );
   ctx.closePath();
 }
 
 /**
- * The embroidered drop, one shape used everywhere: pointed at the top, round
- * at the bottom, a gold frame, and inside a dark ground with fine gold
- * ornament (where the real kiswa has an inscription). Width follows height
- * through DROP_ASPECT.
+ * The embroidered drop, one shape and one size everywhere (photo 42): a
+ * scalloped gold rim, a small knob on the pointed top, and inside a dark
+ * ground with pierced gold ornament (where the original has an inscription).
  */
-function drop(p: Painter, cx: number, cy: number, h: number) {
-  const w = h * DROP_ASPECT;
+function drop(p: Painter, cx: number, cy: number) {
+  const h = DROP.height;
+  const w = h * DROP.aspect;
+  const body = h * 0.9;
+  const bodyCy = cy - (h - body) / 2;
+  p.with(GOLD, (ctx) => {
+    dropPath(ctx, cx, bodyCy, w, body, 0.045);
+    ctx.fill();
+  });
+  // Knob on the tip.
+  p.disc(GOLD, cx, bodyCy + body / 2 + h * 0.035, h * 0.035);
+  p.with(GOLD, (ctx) => {
+    ctx.beginPath();
+    ctx.moveTo(cx - h * 0.012, bodyCy + body / 2 + h * 0.06);
+    ctx.lineTo(cx + h * 0.012, bodyCy + body / 2 + h * 0.06);
+    ctx.lineTo(cx, cy + h / 2);
+    ctx.closePath();
+    ctx.fill();
+  });
   const inner = (ctx: Ctx, k: number) =>
     dropPath(
       ctx,
       cx,
-      cy - h * 0.025 * k,
-      w * (1 - 0.18 * k),
-      h * (1 - 0.12 * k),
+      bodyCy - body * 0.02 * k,
+      w * (1 - 0.2 * k),
+      body * (1 - 0.13 * k),
     );
-  p.with(GOLD, (ctx) => {
-    dropPath(ctx, cx, cy, w, h);
-    ctx.fill();
-  });
   p.with(GOLD_SOFT, (ctx) => {
-    ctx.lineWidth = Math.max(0.01, w * 0.025);
+    ctx.lineWidth = 0.012;
     inner(ctx, 0.45);
     ctx.stroke();
   });
@@ -427,14 +474,14 @@ function drop(p: Painter, cx: number, cy: number, h: number) {
     ctx.fill();
   });
   p.clipped(
-    (ctx) => inner(ctx, 1.15),
+    (ctx) => inner(ctx, 1.1),
     () =>
       goldFill(
         p,
         cx - w / 2,
-        cy - h / 2,
+        bodyCy - body / 2,
         cx + w / 2,
-        cy + h / 2,
+        bodyCy + body / 2,
         GOLD,
         GOLD_SOFT,
         1.7,
@@ -443,51 +490,74 @@ function drop(p: Painter, cx: number, cy: number, h: number) {
 }
 
 /**
- * The corner shield: squarish with a pointed top, a gold frame, a dark
- * ground with fine gold ornament and a rosette. Painted centred on a corner
- * edge (`edgeX`), so half of it falls on each wall.
+ * The corner shield (photo 41 for its details, photo 40 for its proportions):
+ * straight sides and a flat bottom; the top curves up from both shoulders to
+ * a pointed tip with a small finial. A gold frame with a fine inner rule, a
+ * dark ground with fine gold ornament, and an ornamented roundel at its
+ * centre. Painted centred on a corner edge (`edgeX`), half on each wall.
  */
 function cornerShield(p: Painter, edgeX: number) {
-  const { halfWidth: hw, top, bottom } = CORNER_SHIELD;
-  const shoulder = top - hw * 0.7;
+  const { halfWidth: hw, top, bottom, pointShare } = CORNER_SHIELD;
+  const pointH = (top - bottom) * pointShare;
+  const shoulder = top - pointH;
   const shape = (ctx: Ctx, inset: number) => {
     const x0 = edgeX - hw + inset;
     const x1 = edgeX + hw - inset;
-    const r = 0.06;
+    const b = bottom + inset;
+    const s = shoulder - inset * 0.3;
+    const apex = top - inset * 1.6;
     ctx.beginPath();
-    ctx.moveTo(x0 + r, bottom + inset);
-    ctx.lineTo(x1 - r, bottom + inset);
-    ctx.quadraticCurveTo(x1, bottom + inset, x1, bottom + inset + r);
-    ctx.lineTo(x1, shoulder);
-    ctx.lineTo(edgeX, top - inset * 1.4);
-    ctx.lineTo(x0, shoulder);
-    ctx.lineTo(x0, bottom + inset + r);
-    ctx.quadraticCurveTo(x0, bottom + inset, x0 + r, bottom + inset);
+    ctx.moveTo(x0, b);
+    ctx.lineTo(x1, b);
+    ctx.lineTo(x1, s);
+    // Ogee: out from the shoulder, then in to the tip.
+    ctx.bezierCurveTo(
+      x1,
+      s + pointH * 0.55,
+      edgeX + (x1 - edgeX) * 0.2,
+      apex - pointH * 0.45,
+      edgeX,
+      apex,
+    );
+    ctx.bezierCurveTo(
+      edgeX - (edgeX - x0) * 0.2,
+      apex - pointH * 0.45,
+      x0,
+      s + pointH * 0.55,
+      x0,
+      s,
+    );
     ctx.closePath();
   };
   p.with(GOLD, (ctx) => {
     shape(ctx, 0);
     ctx.fill();
   });
+  // Finial above the tip.
+  p.disc(GOLD, edgeX, top + 0.02, 0.035);
   p.with(GOLD_SOFT, (ctx) => {
-    ctx.lineWidth = 0.015;
-    shape(ctx, 0.03);
+    ctx.lineWidth = 0.014;
+    shape(ctx, 0.035);
     ctx.stroke();
   });
   p.with(GROUND, (ctx) => {
-    shape(ctx, 0.055);
+    shape(ctx, 0.06);
     ctx.fill();
   });
   p.clipped(
-    (ctx) => shape(ctx, 0.07),
+    (ctx) => shape(ctx, 0.075),
     () =>
       goldFill(p, edgeX - hw, bottom, edgeX + hw, top, GOLD, GOLD_SOFT, 1.7),
   );
-  const cy = bottom + (shoulder - bottom) * 0.55;
-  p.disc(GOLD, edgeX, cy, hw * 0.42);
-  p.disc(GROUND, edgeX, cy, hw * 0.36);
-  p.rosette(GOLD_SOFT, edgeX, cy, hw * 0.34, 8);
-  p.disc(GOLD, edgeX, cy, hw * 0.07);
+  // Ornamented roundel at the centre of the square body.
+  const cy = (bottom + shoulder) / 2 + 0.02;
+  const r = hw * 0.48;
+  p.disc(GOLD, edgeX, cy, r);
+  p.ring(GOLD_SOFT, 0.012, edgeX, cy, r - 0.025);
+  p.disc(GROUND, edgeX, cy, r - 0.045);
+  p.rosette(GOLD, edgeX, cy, (r - 0.05) * 0.95, 12);
+  p.ring(GOLD_SOFT, 0.012, edgeX, cy, r * 0.42);
+  p.disc(GOLD, edgeX, cy, r * 0.16);
 }
 
 /**
@@ -547,7 +617,7 @@ type BelowBeltItem = { panel: number; width: number } | { drop: number };
 function belowBelt(p: Painter, items: BelowBeltItem[]) {
   for (const item of items) {
     if ("panel" in item) panel(p, item.panel, item.width);
-    else drop(p, item.drop, PANEL_CY, BELT_DROP_H);
+    else drop(p, item.drop, PANEL_CY);
   }
 }
 
@@ -557,14 +627,14 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
  * the corner edge, so half of each drop falls on each wall.
  */
 function paintDropColumn(p: Painter, edgeX: number) {
-  const { count, height, bottomMargin } = DROP_COLUMN;
+  const { count, bottomMargin } = DROP_COLUMN;
+  const height = DROP.height;
   // One equal gap above every drop, the first right under the shield.
   const top = CORNER_SHIELD.bottom;
   const bottom = KAABA.stoneTop + bottomMargin;
   const gap = (top - bottom - count * height) / count;
   for (let i = 0; i < count; i++) {
-    const cy = top - gap - height / 2 - i * (height + gap);
-    drop(p, edgeX, cy, height);
+    drop(p, edgeX, top - gap - height / 2 - i * (height + gap));
   }
 }
 
@@ -947,7 +1017,8 @@ function paintDoor(p: Painter) {
  * Panels below the belt for a stretch of wall (positions and widths as
  * before), with one drop centred in every gap: between neighbouring panels,
  * and between each end panel and the corner shield or curtain beside it.
- * `left` and `right` are where the neighbouring ornament ends.
+ * `left` and `right` are where the neighbouring ornament ends; `trimLast`
+ * shortens the last panel from its right end.
  */
 function panelsAndDrops(
   x0: number,
@@ -956,14 +1027,17 @@ function panelsAndDrops(
   width: number,
   left: number,
   right: number,
+  trimLast = 0,
 ): BelowBeltItem[] {
   const items: BelowBeltItem[] = [];
   const slot = (x1 - x0) / panels;
   const edges: [number, number][] = [];
   for (let i = 0; i < panels; i++) {
     const c = x0 + (i + 0.5) * slot;
-    items.push({ panel: c, width });
-    edges.push([c - width / 2, c + width / 2]);
+    // The last panel may be shortened from its right end to make room.
+    const t = i === panels - 1 ? trimLast : 0;
+    items.push({ panel: c - t / 2, width: width - t });
+    edges.push([c - width / 2, c + width / 2 - t]);
   }
   const bounds = [left, ...edges.flat(), right];
   for (let i = 0; i < bounds.length; i += 2) {
@@ -992,7 +1066,9 @@ function paintWall(p: Painter, wall: Wall) {
           2,
           2.3,
           SITARA_X1,
-          L - CORNER_SHIELD.halfWidth,
+          // Room for a full drop beside the larger Iraqi corner shield.
+          L - CORNER_SHIELD.halfWidth - 0.08,
+          DOOR_WALL_TRIM,
         ),
       );
       paintSitara(p);
@@ -1006,8 +1082,8 @@ function paintWall(p: Painter, wall: Wall) {
           L - 0.6,
           2,
           2.9,
-          CORNER_SHIELD.halfWidth,
-          L - CORNER_SHIELD.halfWidth,
+          DROP_LAYOUT_EDGE,
+          L - DROP_LAYOUT_EDGE,
         ),
       );
       break;
@@ -1020,8 +1096,8 @@ function paintWall(p: Painter, wall: Wall) {
           L - 0.9,
           2,
           3.1,
-          CORNER_SHIELD.halfWidth,
-          L - CORNER_SHIELD.halfWidth,
+          DROP_LAYOUT_EDGE,
+          L - DROP_LAYOUT_EDGE,
         ),
       );
       paintYemeniBand(p, L, -1);
@@ -1037,8 +1113,8 @@ function paintWall(p: Painter, wall: Wall) {
           L - 1.0,
           2,
           2.5,
-          CORNER_SHIELD.halfWidth,
-          L - CORNER_SHIELD.halfWidth,
+          DROP_LAYOUT_EDGE,
+          L - DROP_LAYOUT_EDGE,
         ),
       );
       paintYemeniBand(p, 0, 1);

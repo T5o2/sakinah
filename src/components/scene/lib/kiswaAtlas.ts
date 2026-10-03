@@ -62,8 +62,18 @@ const JOINT = surf("#a38c5c", 0.7, 0.5, 0.35, 0.28);
 const STONE_SHADES = ["#57534c", "#5f5a51", "#4f4b45", "#655e54", "#5a544b"];
 const CORNER_STONE = surf("#7b705f", 0.55, 0.85, 0, 0.5);
 const GROUND = surf("#0f0d0a", 0.3, 0.7, 0.1, 0.45);
-/** Black Stone corner drop column: one roundel, then these drops. */
-const DROP_COLUMN = { count: 5, width: 0.62, height: 0.64, step: 0.82 };
+/**
+ * Black Stone corner drop column: one roundel just under the belt, then these
+ * drops, evenly spaced from the roundel down to the stones — two on the black
+ * kiswa and two on the white cloth, none crossing the hem between them.
+ */
+const DROP_COLUMN = {
+  roundelR: 0.3,
+  count: 4,
+  width: 0.72,
+  height: 1.05,
+  bottomMargin: 0.05,
+};
 /** Thick padded black border round the stone showing at the Yemeni corner. */
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
@@ -467,18 +477,21 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
 }
 
 /**
- * Black Stone corner: one roundel just under the belt, then five large
- * embroidered drops at a wide, even spacing — about two on the black kiswa
- * and the rest on the white cloth. Painted centred on the corner edge, so
- * half of each shape falls on each wall (`edgeX` is the corner's x).
+ * Black Stone corner: one roundel just under the belt, then large
+ * embroidered drops starting right under it at one even spacing (see
+ * DROP_COLUMN). Painted centred on the corner edge, so half of each shape
+ * falls on each wall (`edgeX` is the corner's x).
  */
 function paintDropColumn(p: Painter, edgeX: number) {
-  roundel(p, edgeX, PANEL_CY, 0.3);
-  const { count, width, height, step } = DROP_COLUMN;
-  // Bottom drop just above the stones; the rest stacked up at `step`.
-  const lowest = KAABA.stoneTop + 0.12 + height / 2;
+  const { roundelR, count, width, height, bottomMargin } = DROP_COLUMN;
+  roundel(p, edgeX, PANEL_CY, roundelR);
+  // One equal gap above every drop, the first right under the roundel.
+  const top = PANEL_CY - roundelR;
+  const bottom = KAABA.stoneTop + bottomMargin;
+  const gap = (top - bottom - count * height) / count;
   for (let i = 0; i < count; i++) {
-    drop(p, edgeX, lowest + i * step, width, height);
+    const cy = top - gap - height / 2 - i * (height + gap);
+    drop(p, edgeX, cy, width, height);
   }
 }
 

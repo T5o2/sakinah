@@ -62,18 +62,6 @@ const JOINT = surf("#a38c5c", 0.7, 0.5, 0.35, 0.28);
 const STONE_SHADES = ["#57534c", "#5f5a51", "#4f4b45", "#655e54", "#5a544b"];
 const CORNER_STONE = surf("#7b705f", 0.55, 0.85, 0, 0.5);
 const GROUND = surf("#0f0d0a", 0.3, 0.7, 0.1, 0.45);
-/**
- * Black Stone corner drop column: one roundel just under the belt, then these
- * drops, evenly spaced from the roundel down to the stones — two on the black
- * kiswa and two on the white cloth, none crossing the hem between them.
- */
-const DROP_COLUMN = {
-  roundelR: 0.3,
-  count: 4,
-  width: 0.72,
-  height: 1.05,
-  bottomMargin: 0.05,
-};
 /** Thick padded black border round the stone showing at the Yemeni corner. */
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
@@ -103,6 +91,25 @@ const SITARA_X1 = DOOR_X + KAABA.sitara.width / 2;
 const PANEL_TOP = BELT_BOTTOM - 0.3;
 const PANEL_H = 0.6;
 const PANEL_CY = PANEL_TOP - PANEL_H / 2;
+/** Width ÷ height of every embroidered drop, so one shape is used everywhere. */
+const DROP_ASPECT = 0.69;
+/** Drops between the panels below the belt: a little shorter than a panel. */
+const BELT_DROP_H = PANEL_H * 0.9;
+/**
+ * The shield at each of the four corners, just under the belt: squarish with
+ * a pointed top, centred on the corner edge (half on each wall).
+ */
+const CORNER_SHIELD = {
+  halfWidth: 0.35,
+  top: BELT_BOTTOM - 0.06,
+  bottom: PANEL_CY - 0.3,
+};
+/**
+ * Black Stone corner drop column: drops evenly spaced from right under the
+ * corner shield down to the stones — two on the black kiswa and two on the
+ * white cloth, none crossing the hem between them.
+ */
+const DROP_COLUMN = { count: 4, height: 1.05, bottomMargin: 0.05 };
 /** The belt is divided into panels about this long, by thin separators. */
 const BELT_PANEL_M = 2.4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
@@ -365,15 +372,6 @@ function brightFill(
   goldFill(p, x0, y0, x1, y1, GROUND, GOLD_SOFT, 0.55);
 }
 
-/** A roundel: gold ring on black with a rosette. Used sparingly, near corners. */
-function roundel(p: Painter, cx: number, cy: number, r: number) {
-  p.disc(GOLD, cx, cy, r);
-  p.disc(GROUND, cx, cy, r - 0.045);
-  p.rosette(GOLD_SOFT, cx, cy, r * 0.8, 12);
-  p.ring(GOLD, r * 0.06, cx, cy, r * 0.45);
-  p.disc(GOLD, cx, cy, r * 0.14);
-}
-
 /** A pointed oval: round below, drawn to a point above. */
 function dropPath(ctx: Ctx, cx: number, cy: number, w: number, h: number) {
   const top = cy + h / 2;
@@ -399,18 +397,97 @@ function dropPath(ctx: Ctx, cx: number, cy: number, w: number, h: number) {
   ctx.closePath();
 }
 
-/** An embroidered drop: gold border, black inside, a small geometric motif. */
-function drop(p: Painter, cx: number, cy: number, w: number, h: number) {
+/**
+ * The embroidered drop, one shape used everywhere: pointed at the top, round
+ * at the bottom, a gold frame, and inside a dark ground with fine gold
+ * ornament (where the real kiswa has an inscription). Width follows height
+ * through DROP_ASPECT.
+ */
+function drop(p: Painter, cx: number, cy: number, h: number) {
+  const w = h * DROP_ASPECT;
+  const inner = (ctx: Ctx, k: number) =>
+    dropPath(
+      ctx,
+      cx,
+      cy - h * 0.025 * k,
+      w * (1 - 0.18 * k),
+      h * (1 - 0.12 * k),
+    );
   p.with(GOLD, (ctx) => {
     dropPath(ctx, cx, cy, w, h);
     ctx.fill();
   });
+  p.with(GOLD_SOFT, (ctx) => {
+    ctx.lineWidth = Math.max(0.01, w * 0.025);
+    inner(ctx, 0.45);
+    ctx.stroke();
+  });
   p.with(GROUND, (ctx) => {
-    dropPath(ctx, cx, cy - h * 0.03, w * 0.74, h * 0.78);
+    inner(ctx, 1);
     ctx.fill();
   });
-  p.star(GOLD_SOFT, w * 0.05, cx, cy - h * 0.08, w * 0.2);
-  p.disc(GOLD, cx, cy - h * 0.08, w * 0.06);
+  p.clipped(
+    (ctx) => inner(ctx, 1.15),
+    () =>
+      goldFill(
+        p,
+        cx - w / 2,
+        cy - h / 2,
+        cx + w / 2,
+        cy + h / 2,
+        GOLD,
+        GOLD_SOFT,
+        1.7,
+      ),
+  );
+}
+
+/**
+ * The corner shield: squarish with a pointed top, a gold frame, a dark
+ * ground with fine gold ornament and a rosette. Painted centred on a corner
+ * edge (`edgeX`), so half of it falls on each wall.
+ */
+function cornerShield(p: Painter, edgeX: number) {
+  const { halfWidth: hw, top, bottom } = CORNER_SHIELD;
+  const shoulder = top - hw * 0.7;
+  const shape = (ctx: Ctx, inset: number) => {
+    const x0 = edgeX - hw + inset;
+    const x1 = edgeX + hw - inset;
+    const r = 0.06;
+    ctx.beginPath();
+    ctx.moveTo(x0 + r, bottom + inset);
+    ctx.lineTo(x1 - r, bottom + inset);
+    ctx.quadraticCurveTo(x1, bottom + inset, x1, bottom + inset + r);
+    ctx.lineTo(x1, shoulder);
+    ctx.lineTo(edgeX, top - inset * 1.4);
+    ctx.lineTo(x0, shoulder);
+    ctx.lineTo(x0, bottom + inset + r);
+    ctx.quadraticCurveTo(x0, bottom + inset, x0 + r, bottom + inset);
+    ctx.closePath();
+  };
+  p.with(GOLD, (ctx) => {
+    shape(ctx, 0);
+    ctx.fill();
+  });
+  p.with(GOLD_SOFT, (ctx) => {
+    ctx.lineWidth = 0.015;
+    shape(ctx, 0.03);
+    ctx.stroke();
+  });
+  p.with(GROUND, (ctx) => {
+    shape(ctx, 0.055);
+    ctx.fill();
+  });
+  p.clipped(
+    (ctx) => shape(ctx, 0.07),
+    () =>
+      goldFill(p, edgeX - hw, bottom, edgeX + hw, top, GOLD, GOLD_SOFT, 1.7),
+  );
+  const cy = bottom + (shoulder - bottom) * 0.55;
+  p.disc(GOLD, edgeX, cy, hw * 0.42);
+  p.disc(GROUND, edgeX, cy, hw * 0.36);
+  p.rosette(GOLD_SOFT, edgeX, cy, hw * 0.34, 8);
+  p.disc(GOLD, edgeX, cy, hw * 0.07);
 }
 
 /**
@@ -465,33 +542,29 @@ function panel(p: Painter, cx: number, width: number) {
   brightFill(p, x0 + 0.085, y0 + 0.085, x1 - 0.085, PANEL_TOP - 0.085);
 }
 
-type BelowBeltItem =
-  { panel: number; width: number } | { drop: number } | { roundel: number };
+type BelowBeltItem = { panel: number; width: number } | { drop: number };
 
 function belowBelt(p: Painter, items: BelowBeltItem[]) {
   for (const item of items) {
     if ("panel" in item) panel(p, item.panel, item.width);
-    else if ("drop" in item) drop(p, item.drop, PANEL_CY, 0.32, PANEL_H * 0.95);
-    else roundel(p, item.roundel, PANEL_CY, PANEL_H * 0.42);
+    else drop(p, item.drop, PANEL_CY, BELT_DROP_H);
   }
 }
 
 /**
- * Black Stone corner: one roundel just under the belt, then large
- * embroidered drops starting right under it at one even spacing (see
- * DROP_COLUMN). Painted centred on the corner edge, so half of each shape
- * falls on each wall (`edgeX` is the corner's x).
+ * Black Stone corner: under the corner shield, a column of drops starting
+ * right under it at one even spacing (see DROP_COLUMN). Painted centred on
+ * the corner edge, so half of each drop falls on each wall.
  */
 function paintDropColumn(p: Painter, edgeX: number) {
-  const { roundelR, count, width, height, bottomMargin } = DROP_COLUMN;
-  roundel(p, edgeX, PANEL_CY, roundelR);
-  // One equal gap above every drop, the first right under the roundel.
-  const top = PANEL_CY - roundelR;
+  const { count, height, bottomMargin } = DROP_COLUMN;
+  // One equal gap above every drop, the first right under the shield.
+  const top = CORNER_SHIELD.bottom;
   const bottom = KAABA.stoneTop + bottomMargin;
   const gap = (top - bottom - count * height) / count;
   for (let i = 0; i < count; i++) {
     const cy = top - gap - height / 2 - i * (height + gap);
-    drop(p, edgeX, cy, width, height);
+    drop(p, edgeX, cy, height);
   }
 }
 
@@ -510,12 +583,7 @@ function paintYemeniBand(p: Painter, edgeX: number, inward: 1 | -1) {
   p.rect(GOLD, x0, bottom, x1, top - 0.4);
   p.rect(GROUND, x0 + 0.04, bottom + 0.04, x1 - 0.04, top - 0.44);
   goldFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.46);
-  // Square medallion at the head, half on each wall.
-  const m0 = Math.min(edgeX, edgeX + inward * YEMENI_BAND_M * 1.25);
-  const m1 = Math.max(edgeX, edgeX + inward * YEMENI_BAND_M * 1.25);
-  p.rect(GOLD, m0, top - 0.42, m1, top + 0.02);
-  p.rect(GROUND, m0 + 0.04, top - 0.38, m1 - 0.04, top - 0.02);
-  p.star(GOLD_SOFT, 0.03, edgeX + inward * 0.16, top - 0.2, 0.12);
+  // Its head is the corner shield (painted with the other corners).
 }
 
 /**
@@ -875,21 +943,32 @@ function paintDoor(p: Painter) {
   );
 }
 
-/** Evenly spread panels with drops between them, for a stretch of wall. */
+/**
+ * Panels below the belt for a stretch of wall (positions and widths as
+ * before), with one drop centred in every gap: between neighbouring panels,
+ * and between each end panel and the corner shield or curtain beside it.
+ * `left` and `right` are where the neighbouring ornament ends.
+ */
 function panelsAndDrops(
   x0: number,
   x1: number,
   panels: number,
   width: number,
+  left: number,
+  right: number,
 ): BelowBeltItem[] {
   const items: BelowBeltItem[] = [];
   const slot = (x1 - x0) / panels;
+  const edges: [number, number][] = [];
   for (let i = 0; i < panels; i++) {
     const c = x0 + (i + 0.5) * slot;
     items.push({ panel: c, width });
-    items.push({ drop: x0 + i * slot });
+    edges.push([c - width / 2, c + width / 2]);
   }
-  items.push({ drop: x1 });
+  const bounds = [left, ...edges.flat(), right];
+  for (let i = 0; i < bounds.length; i += 2) {
+    items.push({ drop: ((bounds[i] ?? 0) + (bounds[i + 1] ?? 0)) / 2 });
+  }
   return items;
 }
 
@@ -905,28 +984,71 @@ function paintWall(p: Painter, wall: Wall) {
       // Black Stone corner on the left: its half of the drop column; the
       // curtain; then panels and drops towards the Iraqi corner.
       paintDropColumn(p, 0);
-      belowBelt(p, panelsAndDrops(SITARA_X1 + 0.5, L - 0.55, 2, 2.3));
+      belowBelt(
+        p,
+        panelsAndDrops(
+          SITARA_X1 + 0.5,
+          L - 0.55,
+          2,
+          2.3,
+          SITARA_X1,
+          L - CORNER_SHIELD.halfWidth,
+        ),
+      );
       paintSitara(p);
       paintDoor(p);
       break;
     case "hijr":
-      belowBelt(p, panelsAndDrops(0.6, L - 0.6, 2, 2.9));
+      belowBelt(
+        p,
+        panelsAndDrops(
+          0.6,
+          L - 0.6,
+          2,
+          2.9,
+          CORNER_SHIELD.halfWidth,
+          L - CORNER_SHIELD.halfWidth,
+        ),
+      );
       break;
     case "southWest":
       // Yemeni corner at the right end.
-      belowBelt(p, panelsAndDrops(0.6, L - 0.9, 2, 3.1));
+      belowBelt(
+        p,
+        panelsAndDrops(
+          0.6,
+          L - 0.9,
+          2,
+          3.1,
+          CORNER_SHIELD.halfWidth,
+          L - CORNER_SHIELD.halfWidth,
+        ),
+      );
       paintYemeniBand(p, L, -1);
       paintYemeniArch(p, L, -1);
       break;
     case "southEast":
       // Yemeni corner at the left end; Black Stone corner at the right, with
       // the other half of its drop column.
-      belowBelt(p, panelsAndDrops(0.9, L - 1.0, 2, 2.5));
+      belowBelt(
+        p,
+        panelsAndDrops(
+          0.9,
+          L - 1.0,
+          2,
+          2.5,
+          CORNER_SHIELD.halfWidth,
+          L - CORNER_SHIELD.halfWidth,
+        ),
+      );
       paintYemeniBand(p, 0, 1);
       paintYemeniArch(p, 0, 1);
       paintDropColumn(p, L);
       break;
   }
+  // The four corner shields: each wall paints its half of the two at its ends.
+  cornerShield(p, 0);
+  cornerShield(p, L);
 }
 
 /** Derives a tangent-space normal map from the height canvas (v up in texture space). */

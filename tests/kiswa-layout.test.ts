@@ -3,8 +3,10 @@ import {
   BELOW_BELT_GAP,
   DROP_WIDTH,
   belowBeltRun,
+  dropColumnCentres,
   type BelowBeltItem,
 } from "../src/components/scene/lib/kiswaAtlas";
+import { KAABA } from "../src/components/scene/lib/layout";
 
 /** [x0, x1] of every item, left to right. */
 function spans(items: BelowBeltItem[]): [number, number][] {
@@ -46,5 +48,26 @@ describe("panels and drops below the belt", () => {
 
   it("refuses a stretch too short for its panels", () => {
     expect(() => belowBeltRun(0, 1, 2)).toThrow();
+  });
+});
+
+describe("Black Stone drop column", () => {
+  const centres = dropColumnCentres();
+  const half = 0.4; // half the drop's height
+
+  it("hangs two drops on the black kiswa and two on the white cloth", () => {
+    expect(centres).toHaveLength(4);
+    const black = centres.filter((c) => c - half > KAABA.whiteClothTop);
+    const white = centres.filter(
+      (c) => c + half < KAABA.whiteClothTop && c - half >= KAABA.stoneTop,
+    );
+    expect(black).toHaveLength(2);
+    expect(white).toHaveLength(2);
+  });
+
+  it("spaces the drops evenly", () => {
+    const steps = centres.slice(1).map((c, i) => centres[i]! - c);
+    for (const s of steps) expect(s).toBeCloseTo(steps[0]!, 9);
+    expect(steps[0]!).toBeGreaterThan(2 * half);
   });
 });

@@ -97,10 +97,19 @@ const PANEL_CY = PANEL_TOP - PANEL_H / 2;
  */
 const DROP = { height: 0.8, aspect: 0.62 };
 export const DROP_WIDTH = DROP.height * DROP.aspect;
+/** Corner shield height: about 1.08 × the belt's height (photo 40). */
+const SHIELD_H = KAABA.beltHeight * 1.08;
 /**
- * The corner shield (reference photos 40–41): straight sides, a top curving
- * up to a pointed tip, centred on the corner edge just under the belt.
- * Height measured on photo 40: about 1.08 × the belt's height.
+ * Black gaps round the corner shield as shares of its height, measured on
+ * photos 45 and 47: above it, up to the belt (0.44 and 0.36–0.43), and below
+ * it, down to the first drop of the Black Stone column (0.40).
+ */
+const SHIELD_GAP_ABOVE = 0.42;
+const SHIELD_GAP_BELOW = 0.4;
+/**
+ * The corner shield (reference photos 40–41, 45–47): straight sides, a top
+ * curving up to a pointed tip, centred on the corner edge — half on each wall,
+ * its roundel on the edge itself — with a black gap between it and the belt.
  *
  * Folded 90° over the edge, a shape shows at most 0.71 of its painted width,
  * so a square-painted shield reads tall and narrow from the mataf. It is
@@ -109,8 +118,8 @@ export const DROP_WIDTH = DROP.height * DROP.aspect;
  */
 const CORNER_SHIELD = {
   halfWidth: 0.8,
-  top: BELT_BOTTOM - 0.04,
-  bottom: BELT_BOTTOM - 0.04 - KAABA.beltHeight * 1.08,
+  top: BELT_BOTTOM - SHIELD_GAP_ABOVE * SHIELD_H,
+  bottom: BELT_BOTTOM - (SHIELD_GAP_ABOVE + 1) * SHIELD_H,
   /** Share of the height taken by the pointed top. */
   pointShare: 0.3,
   /** Half-width the roundel is drawn for; it is stretched to the shield's width. */
@@ -122,12 +131,24 @@ const CORNER_SHIELD = {
  */
 export const BELOW_BELT_GAP = 0.15;
 /**
- * Black Stone corner drop column: drops evenly spaced from right under the
- * corner shield down to the stones — two on the black kiswa and two on the
- * white cloth, none crossing the hem between them. Folded over the corner
- * edge itself, as at the Haram: half of each drop on each wall.
+ * Black Stone corner drop column: a black gap under the corner shield (see
+ * SHIELD_GAP_BELOW), then drops at one even spacing down to the stones — two
+ * on the black kiswa and two on the white cloth, none crossing the hem
+ * between them. Folded over the corner edge itself, as at the Haram: half of
+ * each drop on each wall.
  */
 const DROP_COLUMN = { count: 4, bottomMargin: 0.05 };
+
+/** Centre heights of the Black Stone column's drops, top to bottom. */
+export function dropColumnCentres(): number[] {
+  const { count, bottomMargin } = DROP_COLUMN;
+  const h = DROP.height;
+  const top = CORNER_SHIELD.bottom - SHIELD_GAP_BELOW * SHIELD_H;
+  const bottom = KAABA.stoneTop + bottomMargin;
+  // The first drop hangs from `top`, the last rests on `bottom`.
+  const gap = (top - bottom - count * h) / (count - 1);
+  return Array.from({ length: count }, (_, i) => top - h / 2 - i * (h + gap));
+}
 /** The belt is divided into panels about this long, by thin separators. */
 const BELT_PANEL_M = 2.4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
@@ -638,20 +659,12 @@ function belowBelt(p: Painter, items: BelowBeltItem[]) {
 }
 
 /**
- * Black Stone corner: under the corner shield, a column of drops starting
- * right under it at one even spacing (see DROP_COLUMN). Painted centred on
- * the corner edge (`edgeX`), so half of each drop falls on each wall.
+ * Black Stone corner: the column of drops under the corner shield (see
+ * DROP_COLUMN). Painted centred on the corner edge (`edgeX`), so half of each
+ * drop falls on each wall.
  */
 function paintDropColumn(p: Painter, edgeX: number) {
-  const { count, bottomMargin } = DROP_COLUMN;
-  const height = DROP.height;
-  // One equal gap above every drop, the first right under the shield.
-  const top = CORNER_SHIELD.bottom;
-  const bottom = KAABA.stoneTop + bottomMargin;
-  const gap = (top - bottom - count * height) / count;
-  for (let i = 0; i < count; i++) {
-    drop(p, edgeX, top - gap - height / 2 - i * (height + gap));
-  }
+  for (const cy of dropColumnCentres()) drop(p, edgeX, cy);
 }
 
 /**
@@ -664,11 +677,13 @@ function paintYemeniBand(p: Painter, edgeX: number, inward: 1 | -1) {
   const b = edgeX + inward * YEMENI_BAND_M;
   const x0 = Math.min(a, b);
   const x1 = Math.max(a, b);
-  const top = PANEL_TOP;
+  // It starts right under the corner shield (photo 47): its top end tucks
+  // behind the shield, so it seems to run on from the shield's flat bottom.
+  const top = CORNER_SHIELD.bottom + 0.1;
   const bottom = KAABA.whiteClothTop + 0.05;
-  p.rect(GOLD, x0, bottom, x1, top - 0.4);
-  p.rect(GROUND, x0 + 0.04, bottom + 0.04, x1 - 0.04, top - 0.44);
-  goldFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.46);
+  p.rect(GOLD, x0, bottom, x1, top);
+  p.rect(GROUND, x0 + 0.04, bottom + 0.04, x1 - 0.04, top - 0.04);
+  goldFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.06);
   // Its head is the corner shield (painted with the other corners).
 }
 

@@ -17,10 +17,14 @@
  * documented figure wins. Source notes: docs/ARCHITECTURE.md (Phase 2).
  */
 export const KAABA = {
-  /** Door wall and its opposite (documented 11.68 m and 12.04 m: averaged). */
-  sizeX: 11.9,
-  /** Hijr wall and its opposite (documented 9.90 m and 10.18 m: averaged). */
-  sizeZ: 10.0,
+  /**
+   * Door wall (Multazam side, documented 12.84 m) and its opposite (12.11 m),
+   * averaged. Their sum with the other two sides, 47.75 m, matches the
+   * documented 47 m length of the kiswa belt.
+   */
+  sizeX: 12.48,
+  /** Hijr wall (documented 11.28 m) and its opposite (11.52 m), averaged. */
+  sizeZ: 11.4,
   /** Documented 13.1–15 m; 14 m is the commonly cited middle value. */
   height: 14,
   /** Parapet round the roof; the kiswa wraps over it (height and thickness). */
@@ -114,10 +118,14 @@ export const HIJR = {
   gateHeight: 1.25,
 } as const;
 
-/** Maqam Ibrahim stands in front of the door wall (position kept as approved). */
+/**
+ * Maqam Ibrahim stands in front of the door wall. Its approved place is kept
+ * relative to the Kaaba: 3.30 m along the door wall from the Black Stone
+ * corner, 13.05 m out from the wall.
+ */
 export const MAQAM = {
-  x: -2.65,
-  z: 18.05,
+  x: -HALF_X + 3.3,
+  z: HALF_Z + 13.05,
 } as const;
 
 /**
@@ -125,7 +133,8 @@ export const MAQAM = {
  * corners and bulges around Hijr Ismail (centred on θ = 0, the +X axis).
  */
 export const CLEARANCE = {
-  base: 9.0,
+  /** Clear of the corners' shadharwan by the same margin as before (≈ 0.6 m). */
+  base: 9.7,
   hijrBulge: 7.5,
   hijrHalfSectorDeg: 50,
 } as const;

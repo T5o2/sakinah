@@ -110,20 +110,14 @@ const SHIELD_GAP_BELOW = 0.4;
  * The corner shield (reference photos 40–41, 45–47): straight sides, a top
  * curving up to a pointed tip, centred on the corner edge — half on each wall,
  * its roundel on the edge itself — with a black gap between it and the belt.
- *
- * Folded 90° over the edge, a shape shows at most 0.71 of its painted width,
- * so a square-painted shield reads tall and narrow from the mataf. It is
- * painted wider (and its roundel stretched to match) so that from the
- * default camera (Iraqi corner) it reads as on photo 40: width ≈ 0.85 × height.
+ * Painted about as wide as it is tall (approved).
  */
 const CORNER_SHIELD = {
-  halfWidth: 0.8,
+  halfWidth: 0.54,
   top: BELT_BOTTOM - SHIELD_GAP_ABOVE * SHIELD_H,
   bottom: BELT_BOTTOM - (SHIELD_GAP_ABOVE + 1) * SHIELD_H,
   /** Share of the height taken by the pointed top. */
   pointShare: 0.3,
-  /** Half-width the roundel is drawn for; it is stretched to the shield's width. */
-  roundelHalfWidth: 0.54,
 };
 /**
  * Below the belt (photo 43): drops sit close to the panels, with one equal
@@ -149,8 +143,8 @@ export function dropColumnCentres(): number[] {
   const gap = (top - bottom - count * h) / (count - 1);
   return Array.from({ length: count }, (_, i) => top - h / 2 - i * (h + gap));
 }
-/** The belt is divided into panels about this long, by thin separators. */
-const BELT_PANEL_M = 2.4;
+/** The belt is made of 16 pieces, four on each side (documented). */
+const BELT_PIECES_PER_WALL = 4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
 const YEMENI_BAND_M = 0.26;
 const YEMENI_ARCH = { halfWidth: 0.7, top: 2.05, border: 0.14 };
@@ -577,24 +571,15 @@ function cornerShield(p: Painter, edgeX: number) {
     () =>
       goldFill(p, edgeX - hw, bottom, edgeX + hw, top, GOLD, GOLD_SOFT, 1.7),
   );
-  // Ornamented roundel at the centre of the square body, stretched across
-  // like the shield so that, folded over the edge, it still reads round.
+  // Ornamented roundel at the centre of the square body.
   const cy = (bottom + shoulder) / 2 + 0.02;
-  const r = CORNER_SHIELD.roundelHalfWidth * 0.48;
-  const stretch = hw / CORNER_SHIELD.roundelHalfWidth;
-  p.each((ctx) => {
-    ctx.save();
-    ctx.translate(edgeX, cy);
-    ctx.scale(stretch, 1);
-    ctx.translate(-edgeX, -cy);
-  });
+  const r = hw * 0.48;
   p.disc(GOLD, edgeX, cy, r);
   p.ring(GOLD_SOFT, 0.012, edgeX, cy, r - 0.025);
   p.disc(GROUND, edgeX, cy, r - 0.045);
   p.rosette(GOLD, edgeX, cy, (r - 0.05) * 0.95, 12);
   p.ring(GOLD_SOFT, 0.012, edgeX, cy, r * 0.42);
   p.disc(GOLD, edgeX, cy, r * 0.16);
-  p.each((ctx) => ctx.restore());
 }
 
 /**
@@ -605,7 +590,7 @@ function paintBelt(p: Painter, L: number) {
   p.rect(GOLD, 0, BELT_BOTTOM, L, BELT_TOP);
   p.rect(GOLD_SOFT, 0, BELT_TOP - 0.05, L, BELT_TOP - 0.025);
   p.rect(GOLD_SOFT, 0, BELT_BOTTOM + 0.025, L, BELT_BOTTOM + 0.05);
-  const count = Math.max(1, Math.round(L / BELT_PANEL_M));
+  const count = BELT_PIECES_PER_WALL;
   const step = L / count;
   for (let i = 0; i < count; i++) {
     const x0 = i * step + 0.04;

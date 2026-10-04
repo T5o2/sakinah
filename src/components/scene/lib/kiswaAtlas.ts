@@ -97,8 +97,8 @@ const PANEL_CY = PANEL_TOP - PANEL_H / 2;
  */
 const DROP = { height: 0.8, aspect: 0.62 };
 export const DROP_WIDTH = DROP.height * DROP.aspect;
-/** Corner shield height: about 1.08 × the belt's height (photo 40). */
-const SHIELD_H = KAABA.beltHeight * 1.08;
+/** Corner shield height: 0.88 × the belt's height (photo 47). */
+const SHIELD_H = KAABA.beltHeight * 0.88;
 /**
  * Black gaps round the corner shield as shares of its height, measured on
  * photos 45 and 47: above it, up to the belt (0.44 and 0.36–0.43), and below
@@ -107,17 +107,18 @@ const SHIELD_H = KAABA.beltHeight * 1.08;
 const SHIELD_GAP_ABOVE = 0.42;
 const SHIELD_GAP_BELOW = 0.4;
 /**
- * The corner shield (reference photos 40–41, 45–47): straight sides, a top
- * curving up to a pointed tip, centred on the corner edge — half on each wall,
- * its roundel on the edge itself — with a black gap between it and the belt.
- * Painted about as wide as it is tall (approved).
+ * The corner shield (photos 45 and 47, and the documented "circle within a
+ * square"): a square with a flat top and a large roundel, centred on the
+ * corner edge — half on each wall, the roundel on the edge itself — with a
+ * black gap between it and the belt. Seen from where photos 45 and 47 were
+ * taken, it is 1.2 × as wide as tall, as on the photos.
  */
 const CORNER_SHIELD = {
-  halfWidth: 0.54,
+  halfWidth: (SHIELD_H * 1.2) / 2,
   top: BELT_BOTTOM - SHIELD_GAP_ABOVE * SHIELD_H,
   bottom: BELT_BOTTOM - (SHIELD_GAP_ABOVE + 1) * SHIELD_H,
-  /** Share of the height taken by the pointed top. */
-  pointShare: 0.3,
+  /** Roundel diameter as a share of the height (photo 45). */
+  roundel: 0.88,
 };
 /**
  * Below the belt (photo 43): drops sit close to the panels, with one equal
@@ -512,74 +513,26 @@ function drop(p: Painter, cx: number, cy: number) {
 }
 
 /**
- * The corner shield (photo 41 for its details, photo 40 for its proportions):
- * straight sides and a flat bottom; the top curves up from both shoulders to
- * a pointed tip with a small finial. A gold frame with a fine inner rule, a
- * dark ground with fine gold ornament, and an ornamented roundel at its
- * centre. Painted centred on a corner edge (`edgeX`), half on each wall.
+ * The corner shield: a gold square — what must read from the mataf is its
+ * crisp square outline — with a fine dark rule inside its edge, the bright
+ * embroidery of the belt, and a large roundel at its centre, drawn like the
+ * curtain's roundels. Painted centred on a corner edge (`edgeX`), half on
+ * each wall.
  */
 function cornerShield(p: Painter, edgeX: number) {
-  const { halfWidth: hw, top, bottom, pointShare } = CORNER_SHIELD;
-  const pointH = (top - bottom) * pointShare;
-  const shoulder = top - pointH;
-  const shape = (ctx: Ctx, inset: number) => {
-    const x0 = edgeX - hw + inset;
-    const x1 = edgeX + hw - inset;
-    const b = bottom + inset;
-    const s = shoulder - inset * 0.3;
-    const apex = top - inset * 1.6;
-    ctx.beginPath();
-    ctx.moveTo(x0, b);
-    ctx.lineTo(x1, b);
-    ctx.lineTo(x1, s);
-    // Ogee: out from the shoulder, then in to the tip.
-    ctx.bezierCurveTo(
-      x1,
-      s + pointH * 0.55,
-      edgeX + (x1 - edgeX) * 0.2,
-      apex - pointH * 0.45,
-      edgeX,
-      apex,
-    );
-    ctx.bezierCurveTo(
-      edgeX - (edgeX - x0) * 0.2,
-      apex - pointH * 0.45,
-      x0,
-      s + pointH * 0.55,
-      x0,
-      s,
-    );
-    ctx.closePath();
-  };
-  p.with(GOLD, (ctx) => {
-    shape(ctx, 0);
-    ctx.fill();
-  });
-  // Finial above the tip.
-  p.disc(GOLD, edgeX, top + 0.02, 0.035);
-  p.with(GOLD_SOFT, (ctx) => {
-    ctx.lineWidth = 0.014;
-    shape(ctx, 0.035);
-    ctx.stroke();
-  });
-  p.with(GROUND, (ctx) => {
-    shape(ctx, 0.06);
-    ctx.fill();
-  });
-  p.clipped(
-    (ctx) => shape(ctx, 0.075),
-    () =>
-      goldFill(p, edgeX - hw, bottom, edgeX + hw, top, GOLD, GOLD_SOFT, 1.7),
+  const { halfWidth: hw, top, bottom, roundel } = CORNER_SHIELD;
+  const x0 = edgeX - hw;
+  const x1 = edgeX + hw;
+  p.rect(GOLD, x0, bottom, x1, top);
+  p.frame(GROUND, 0.016, x0 + 0.035, bottom + 0.035, x1 - 0.035, top - 0.035);
+  brightFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.06);
+  curtainBigRoundel(
+    p,
+    edgeX,
+    (bottom + top) / 2,
+    ((top - bottom) * roundel) / 2,
+    false,
   );
-  // Ornamented roundel at the centre of the square body.
-  const cy = (bottom + shoulder) / 2 + 0.02;
-  const r = hw * 0.48;
-  p.disc(GOLD, edgeX, cy, r);
-  p.ring(GOLD_SOFT, 0.012, edgeX, cy, r - 0.025);
-  p.disc(GROUND, edgeX, cy, r - 0.045);
-  p.rosette(GOLD, edgeX, cy, (r - 0.05) * 0.95, 12);
-  p.ring(GOLD_SOFT, 0.012, edgeX, cy, r * 0.42);
-  p.disc(GOLD, edgeX, cy, r * 0.16);
 }
 
 /**
@@ -850,14 +803,21 @@ function curtainSmallRoundel(p: Painter, cx: number, cy: number, r: number) {
 
 /**
  * A large roundel beside the opening: gold like the rest of the curtain,
- * with dim silver accents, and a gold disc at the centre.
+ * with dim silver accents (unless `accented` is off), and a gold disc at the
+ * centre.
  */
-function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
+function curtainBigRoundel(
+  p: Painter,
+  cx: number,
+  cy: number,
+  r: number,
+  accented = true,
+) {
   const circle = (ctx: Ctx, inset: number) => {
     ctx.beginPath();
     ctx.arc(cx, cy, r - inset, 0, Math.PI * 2);
   };
-  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], true);
+  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], accented);
   p.disc(GROUND, cx, cy, r * 0.27);
   p.disc(GOLD, cx, cy, r * 0.24);
   p.rosette(GOLD_SOFT, cx, cy, r * 0.21, 8);

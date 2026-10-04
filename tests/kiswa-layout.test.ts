@@ -46,6 +46,13 @@ describe("panels and drops below the belt", () => {
     }
   });
 
+  it("honours a custom gap", () => {
+    const s = spans(belowBeltRun(left, right, 1, 0.3));
+    expect(s[0]![0] - left).toBeCloseTo(0.3, 9);
+    expect(s[1]![0] - s[0]![1]).toBeCloseTo(0.3, 9);
+    expect(right - s[2]![1]).toBeCloseTo(0.3, 9);
+  });
+
   it("refuses a stretch too short for its panels", () => {
     expect(() => belowBeltRun(0, 1, 2)).toThrow();
   });

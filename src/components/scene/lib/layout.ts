@@ -53,16 +53,18 @@ export const KAABA = {
   /** …then the white cloth (documented about 2–2.5 m wide) up to here. */
   whiteClothTop: 4.85,
   /**
-   * The gold door: documented about 2.13 m above the floor, with the stone
-   * wall running down to the floor beneath it. The Multazam — about 2 m of
-   * wall between the Black Stone and the door — places its centre ~2.85 m
-   * from the Black Stone corner.
+   * The gold door, with the stone wall running down to the floor beneath it.
+   * Size and height documented (Arabic Wikipedia: 1.71 × 3.18 m, 2.22 m
+   * above the floor). Centred in the curtain, where the front-on photo 51
+   * puts it: 0.262 of the wall from the Black Stone corner. That leaves
+   * 2.40 m of wall before the door, more than the "about 2 m" usually given
+   * for the Multazam; the photo is followed.
    */
   door: {
-    width: 1.65,
-    height: 3.1,
-    bottom: 2.2,
-    fromBlackStoneCorner: 2.85,
+    width: 1.71,
+    height: 3.18,
+    bottom: 2.22,
+    fromBlackStoneCorner: 3.26,
     /** Flush with the wall, just behind the curtain. */
     standOff: 0.01,
   },
@@ -71,15 +73,17 @@ export const KAABA = {
    * line under the belt to just above the foot of the door, open at the hem
    * in an inverted V reaching just under half its height.
    *
-   * 2.85 m wide, from the front-on photo 50 — narrower than the written
-   * figures (4 m, or 3.5 m on Wikipedia "Kiswah"). On the photo the corner-to-
-   * curtain gap is half the curtain's width, the curtain is about half as
-   * wide as tall, and the door is 0.55 of its width; with the door where the
-   * documented Multazam puts it, 2.85 m matches all three (4 m matched none).
+   * 3.47 m wide: 0.278 of the wall on the front-on photo 51, in line with
+   * the 3.5 m given on Wikipedia "Kiswah". Its left edge is 0.122 of the
+   * wall from the Black Stone corner (1.52 m).
    */
   sitara: {
-    width: 2.85,
-    /** Its height (6.06 m) is kept; hanging from the line puts the hem here. */
+    width: 3.47,
+    /**
+     * From the line under the belt down to 0.3 m above the foot of the door:
+     * 6.04 m tall (photo 51 reads a little taller, 6.40 m, which would not
+     * clear the foot of the door under that line).
+     */
     hemAboveDoor: 0.3,
     /** Hangs flat on the wall like the rest of the kiswa. */
     standOff: 0.03,

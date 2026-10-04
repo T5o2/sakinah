@@ -128,6 +128,11 @@ const CORNER_SHIELD = {
  */
 export const BELOW_BELT_GAP = 0.15;
 /**
+ * Door wall, right of the curtain (photo 51): one panel 0.404 of the wall
+ * long, between two drops with equal gaps either side.
+ */
+const DOOR_PANEL_SHARE = 0.404;
+/**
  * Black Stone corner drop column: a black gap under the corner shield (see
  * SHIELD_GAP_BELOW), then drops at one even spacing down to the stones — two
  * on the black kiswa and two on the white cloth, none crossing the hem
@@ -1003,8 +1008,8 @@ export function belowBeltRun(
   left: number,
   right: number,
   panels: number,
+  g = BELOW_BELT_GAP,
 ): BelowBeltItem[] {
-  const g = BELOW_BELT_GAP;
   const dw = DROP_WIDTH;
   const width = (right - left - (panels + 1) * dw - 2 * (panels + 1) * g) / panels;
   if (width <= 0) throw new Error("No room for the panels below the belt");
@@ -1036,7 +1041,11 @@ function paintWall(p: Painter, wall: Wall) {
       // curtain; then one long panel between two drops towards the Iraqi corner.
       paintDropColumn(p, 0);
       belowBelt(p, [{ drop: (hw + SITARA_X0) / 2 }]);
-      belowBelt(p, belowBeltRun(SITARA_X1, L - hw, 1));
+      {
+        const span = L - hw - SITARA_X1;
+        const gap = (span - 2 * DROP_WIDTH - DOOR_PANEL_SHARE * L) / 4;
+        belowBelt(p, belowBeltRun(SITARA_X1, L - hw, 1, gap));
+      }
       paintSitara(p);
       paintDoor(p);
       break;

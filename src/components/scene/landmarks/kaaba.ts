@@ -3,7 +3,6 @@ import {
   BufferAttribute,
   BufferGeometry,
   CircleGeometry,
-  CylinderGeometry,
   ExtrudeGeometry,
   Matrix4,
   Path,
@@ -302,10 +301,25 @@ function shadharwan(wall: Wall, x0: number, x1: number): Part {
   profile.lineTo(0.06, h);
   profile.lineTo(0, h);
   profile.closePath();
-  const g = new ExtrudeGeometry(profile, {
-    depth: x1 - x0,
-    bevelEnabled: false,
-  });
+  const depth = x1 - x0;
+  const g = new ExtrudeGeometry(profile, { depth, bevelEnabled: false });
+  // Mitre the ends that reach a corner: carry each end-cap vertex past the
+  // corner by its own distance out from the wall, so the cap lies in the
+  // corner's diagonal plane. The run on the neighbouring wall is mitred the
+  // same way, and the two meet as one piece along a sharp hip line, with the
+  // same section, height and slope on both sides. (Local z runs from the x1
+  // end, at 0, to the x0 end, at `depth`.)
+  const pos = g.getAttribute("position");
+  const atCorner0 = x0 === 0;
+  const atCorner1 = x1 === wall.length;
+  for (let i = 0; i < pos.count; i++) {
+    const out = pos.getX(i);
+    const z = pos.getZ(i);
+    if (atCorner1 && Math.abs(z) < 1e-6) pos.setZ(i, -out);
+    if (atCorner0 && Math.abs(z - depth) < 1e-6) pos.setZ(i, depth + out);
+  }
+  pos.needsUpdate = true;
+  g.computeVertexNormals();
   // (out, up, along) → wall frame (x along, y up, z out). Mapping extrusion to
   // −x keeps the basis right-handed; shift so it spans x0..x1.
   g.applyMatrix4(
@@ -459,8 +473,9 @@ function shadharwanRuns(): Record<WallId, [number, number][]> {
  * slab the shadharwan sits on — never showing from above, only as a fine
  * dark line beneath its edge from the side. Where there is no shadharwan
  * (the Multazam and under the door, and the Hijr side between the gates) it
- * lies flush with the floor (photos 54 and 55). Runs overlap at the corners,
- * under the corner hips, so the band goes round each one unbroken.
+ * lies flush with the floor (photos 54 and 55). Each corner square is
+ * covered once, by the run starting there, so the band goes round each one
+ * unbroken with no overlapping faces.
  */
 function blackStrip(): Part[] {
   const { slab, flush } = KAABA.blackStrip;
@@ -477,9 +492,10 @@ function blackStrip(): Part[] {
       const x1 = cuts[k + 1] as number;
       const mid = (x0 + x1) / 2;
       const h = own.some(([a, b]) => mid > a && mid < b) ? slab : flush;
-      // Reach round the corners at the wall's ends, under the corner hips.
+      // Each corner square is covered once, by the run that starts there,
+      // reaching back under the mitred corner of the shadharwan.
       const a = x0 === 0 ? -o : x0;
-      const b = x1 === L ? L + o : x1;
+      const b = x1;
       const g = new BoxGeometry(b - a, h, o);
       g.translate((a + b) / 2, h / 2, o / 2);
       g.applyMatrix4(wallMatrix(wall));
@@ -505,7 +521,6 @@ export function kaabaParts(): {
   // side only a short return round each corner, into the Hijr gate it meets
   // (photo 61); none between the gates, and none from the marble block to the
   // far edge of the door: there the wall stones run down to the floor.
-  const { baseOutset: o } = KAABA;
   const runs = shadharwanRuns();
   const segments = WALLS.flatMap((wall) =>
     runs[wall.id].map(([x0, x1]) => [wall, x0, x1] as const),
@@ -518,33 +533,6 @@ export function kaabaParts(): {
       ...tieRings(wall, Math.max(x0, 0.3), Math.min(x1, wall.length - 0.3)),
     );
   }
-  // Convex hip where two runs meet (at all four corners): a square frustum
-  // whose faces share the runs' slope, on the granite slab like the runs.
-  const slab = KAABA.blackStrip.slab;
-  for (const [x, z] of [
-    [-HALF_X, -HALF_Z],
-    [-HALF_X, HALF_Z],
-    [HALF_X, HALF_Z],
-    [HALF_X, -HALF_Z],
-  ] as const) {
-    matte.push(
-      part(
-        new CylinderGeometry(
-          0.06 * Math.SQRT2,
-          o * Math.SQRT2,
-          KAABA.baseHeight - slab,
-          4,
-          1,
-        ),
-        PALETTE.marble,
-        {
-          position: [x, slab + (KAABA.baseHeight - slab) / 2, z],
-          rotation: [0, Math.PI / 4, 0],
-        },
-      ),
-    );
-  }
-
   // Parapet round the roof: white on its inner face (the kiswa wraps the rest).
   const r = KAABA.rimHeight;
   const t = KAABA.rimThickness;

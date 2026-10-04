@@ -8,7 +8,7 @@ import {
   HIJR,
   KAABA,
 } from "../src/components/scene/lib/layout";
-import { Box3 } from "three";
+import { Box3, Mesh, Raycaster, Vector3 } from "three";
 import { triangleCount } from "../src/components/scene/lib/parts";
 import { BUDGET } from "../src/lib/config/scene";
 
@@ -85,6 +85,47 @@ describe("Kaaba base", () => {
       expect((p.geometry.boundingBox as Box3).min.y).toBeGreaterThanOrEqual(
         KAABA.blackStrip.slab - 1e-6,
       );
+    }
+  });
+});
+
+describe("shadharwan corners", () => {
+  const { matte } = kaabaParts();
+  const meshes = matte.map((p) => new Mesh(p.geometry));
+  const o = KAABA.baseOutset;
+  const h = KAABA.baseHeight;
+  const lip = KAABA.blackStrip.slab + 0.05;
+  /** Section height at `d` metres out from the wall. */
+  const section = (d: number) =>
+    d <= 0.06 ? h : h - ((d - 0.06) * (h - lip)) / (o - 0.06);
+  const ray = new Raycaster();
+  const down = new Vector3(0, -1, 0);
+  const corners = [
+    [-HALF_X, HALF_Z],
+    [HALF_X, HALF_Z],
+    [HALF_X, -HALF_Z],
+    [-HALF_X, -HALF_Z],
+  ] as const;
+  const samples = [
+    [0.05, 0.02],
+    [0.3, 0.1],
+    [0.2, 0.2],
+    [0.1, 0.4],
+    [0.44, 0.43],
+  ] as const;
+
+  it("wraps every corner as one piece at the section's height, with no gap", () => {
+    for (const [cx, cz] of corners) {
+      for (const [p, q] of samples) {
+        // p out past one wall, q out past the other: both are distances
+        // from a wall, so the surface is the section at the larger of them.
+        const x = cx + Math.sign(cx) * p;
+        const z = cz + Math.sign(cz) * q;
+        ray.set(new Vector3(x, 0.6, z), down);
+        const hit = ray.intersectObjects(meshes, false)[0];
+        expect(hit, `hit at (${x}, ${z})`).toBeDefined();
+        expect(hit!.point.y).toBeCloseTo(section(Math.max(p, q)), 4);
+      }
     }
   });
 });

@@ -62,8 +62,6 @@ const JOINT = surf("#a38c5c", 0.7, 0.5, 0.35, 0.28);
 const STONE_SHADES = ["#57534c", "#5f5a51", "#4f4b45", "#655e54", "#5a544b"];
 const CORNER_STONE = surf("#7b705f", 0.55, 0.85, 0, 0.5);
 const GROUND = surf("#0f0d0a", 0.3, 0.7, 0.1, 0.45);
-/** Thick padded black border round the stone showing at the Yemeni corner. */
-const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
 /** Deep gold: fine contour lines on gold that must not read as dark. */
@@ -659,7 +657,7 @@ function paintYemeniBand(p: Painter, edgeX: number) {
 
 /**
  * Yemeni corner, lower part: the corner stone showing through an arched
- * opening, framed by a thick padded black border (half of it on each wall).
+ * opening, framed by a gold border (photo 38; half of it on each wall).
  */
 function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
   const { halfWidth, top, border } = YEMENI_ARCH;
@@ -675,9 +673,23 @@ function paintYemeniArch(p: Painter, edgeX: number, inward: 1 | -1) {
     ctx.quadraticCurveTo(o, top + grow, edgeX, top + grow);
     ctx.closePath();
   };
-  p.with(PADDED, (ctx) => {
-    archPath(ctx, border);
-    ctx.fill();
+  // Gold border, the belt's gold and embroidery (photo 38), edged by a fine
+  // light-gold line; the corner band runs down into it.
+  p.clipped(
+    (ctx) => archPath(ctx, border),
+    () =>
+      brightFill(
+        p,
+        edgeX - halfWidth - border,
+        base - 0.2,
+        edgeX + halfWidth + border,
+        top + border,
+      ),
+  );
+  p.with(GOLD_SOFT, (ctx) => {
+    ctx.lineWidth = 0.02;
+    archPath(ctx, border - 0.025);
+    ctx.stroke();
   });
   p.with(CORNER_STONE, (ctx) => {
     archPath(ctx, 0);

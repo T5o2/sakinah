@@ -51,7 +51,7 @@ export const KISWA_Y1 = KAABA.height;
 
 export const BELT_BOTTOM = KAABA.beltY - KAABA.beltHeight / 2;
 export const BELT_TOP = KAABA.beltY + KAABA.beltHeight / 2;
-export const SITARA_TOP = BELT_BOTTOM - KAABA.sitara.gapBelowBelt;
+export const SITARA_TOP = BELT_BOTTOM - KAABA.belowBeltGap;
 export const SITARA_HEM = KAABA.door.bottom + KAABA.sitara.hemAboveDoor;
 /** Apex of the inverted V at the curtain's hem. */
 export const SITARA_APEX =

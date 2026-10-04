@@ -87,10 +87,12 @@ const DOOR_METAL_DEEP = surf("#a87a42", 1, 0.26, 0.9, 0.6);
 const DOOR_X = KAABA.door.fromBlackStoneCorner;
 const SITARA_X0 = DOOR_X - KAABA.sitara.width / 2;
 const SITARA_X1 = DOOR_X + KAABA.sitara.width / 2;
-/** Separate panels and drops hanging below the belt, clear of it. */
-const PANEL_TOP = BELT_BOTTOM - 0.3;
+/**
+ * Panels and drops hang below the belt, clear of it: their tops, the corner
+ * shields' and the curtain's all on one line (photo 50).
+ */
+const PANEL_TOP = BELT_BOTTOM - KAABA.belowBeltGap;
 const PANEL_H = 0.6;
-const PANEL_CY = PANEL_TOP - PANEL_H / 2;
 /**
  * The embroidered drop, one size everywhere (reference photo 42): 0.8 m tall,
  * between the old small (0.54 m) and large (1.05 m) drops.
@@ -100,11 +102,11 @@ export const DROP_WIDTH = DROP.height * DROP.aspect;
 /** Corner shield height: 0.88 × the belt's height (photo 47). */
 const SHIELD_H = KAABA.beltHeight * 0.88;
 /**
- * Black gaps round the corner shield as shares of its height, measured on
- * photos 45 and 47: above it, up to the belt (0.44 and 0.36–0.43), and below
- * it, down to the first drop of the Black Stone column (0.40).
+ * Black gap below the corner shield, down to the first drop of the Black
+ * Stone column, as a share of its height (photo 45). Above it, its top is on
+ * the line under the belt (photo 50, front-on, which overrides the side
+ * views 45 and 47 for heights).
  */
-const SHIELD_GAP_ABOVE = 0.42;
 const SHIELD_GAP_BELOW = 0.4;
 /**
  * The corner shield (photos 45 and 47, and the documented "circle within a
@@ -115,8 +117,8 @@ const SHIELD_GAP_BELOW = 0.4;
  */
 const CORNER_SHIELD = {
   halfWidth: (SHIELD_H * 1.2) / 2,
-  top: BELT_BOTTOM - SHIELD_GAP_ABOVE * SHIELD_H,
-  bottom: BELT_BOTTOM - (SHIELD_GAP_ABOVE + 1) * SHIELD_H,
+  top: PANEL_TOP,
+  bottom: PANEL_TOP - SHIELD_H,
   /** Roundel diameter as a share of the height (photo 45). */
   roundel: 0.88,
 };
@@ -592,7 +594,7 @@ export type BelowBeltItem = { panel: number; width: number } | { drop: number };
 function belowBelt(p: Painter, items: BelowBeltItem[]) {
   for (const item of items) {
     if ("panel" in item) panel(p, item.panel, item.width);
-    else drop(p, item.drop, PANEL_CY);
+    else drop(p, item.drop, PANEL_TOP - DROP.height / 2);
   }
 }
 
@@ -848,7 +850,8 @@ function paintSitara(p: Painter) {
 
   // Side frames: a column of small gold roundels on the same gold field as
   // the middle, so the edges are as bright as the centre (no dark border).
-  const sideR = 0.14;
+  // The side columns shrink with the curtain (designed at 4 m wide).
+  const sideR = 0.14 * (KAABA.sitara.width / 4);
   for (let y = y0 + 0.2; y < y1 - 0.12; y += 2 * sideR + 0.03) {
     curtainSmallRoundel(p, x0 + 0.04 + sideR, y, sideR);
     curtainSmallRoundel(p, x1 - 0.04 - sideR, y, sideR);
@@ -1028,9 +1031,11 @@ function paintWall(p: Painter, wall: Wall) {
   const hw = CORNER_SHIELD.halfWidth;
   switch (wall.id) {
     case "door":
-      // Black Stone corner on the left: its half of the drop column; the
+      // Black Stone corner on the left: its half of the drop column; one drop
+      // midway between the corner shield and the curtain (photo 50); the
       // curtain; then one long panel between two drops towards the Iraqi corner.
       paintDropColumn(p, 0);
+      belowBelt(p, [{ drop: (hw + SITARA_X0) / 2 }]);
       belowBelt(p, belowBeltRun(SITARA_X1, L - hw, 1));
       paintSitara(p);
       paintDoor(p);

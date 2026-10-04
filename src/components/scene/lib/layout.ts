@@ -35,6 +35,11 @@ export const KAABA = {
   /** Kiswa belt (hizam): documented at two thirds of the height, about 0.95 m wide. */
   beltY: (14 * 2) / 3,
   beltHeight: 0.95,
+  /**
+   * One line under the belt (photo 50): the tops of the corner shields, the
+   * panels, the drops and the door curtain all sit this far below it.
+   */
+  belowBeltGap: 0.3,
   /** How far the embroidered belt and door curtain stand off the wall. */
   reliefDepth: 0.05,
   /**
@@ -62,20 +67,25 @@ export const KAABA = {
     standOff: 0.01,
   },
   /**
-   * Door curtain (sitara): black cloth embroidered in gold, about 4 m wide,
-   * hung from the belt to just above the foot of the door, open at the hem in
-   * an inverted V reaching just under half its height.
+   * Door curtain (sitara): black cloth embroidered in gold, hung from the
+   * line under the belt to just above the foot of the door, open at the hem
+   * in an inverted V reaching just under half its height.
+   *
+   * 2.85 m wide, from the front-on photo 50 — narrower than the written
+   * figures (4 m, or 3.5 m on Wikipedia "Kiswah"). On the photo the corner-to-
+   * curtain gap is half the curtain's width, the curtain is about half as
+   * wide as tall, and the door is 0.55 of its width; with the door where the
+   * documented Multazam puts it, 2.85 m matches all three (4 m matched none).
    */
   sitara: {
-    width: 4.0,
-    hemAboveDoor: 0.2,
+    width: 2.85,
+    /** Its height (6.06 m) is kept; hanging from the line puts the hem here. */
+    hemAboveDoor: 0.3,
     /** Hangs flat on the wall like the rest of the kiswa. */
     standOff: 0.03,
     /** Apex of the opening, as a fraction of the curtain's height from the hem
      * (measured on a reference photo: 43%). */
     openingFraction: 0.43,
-    /** Black gap between the belt and the top of the curtain. */
-    gapBelowBelt: 0.4,
   },
   /** Black Stone: centre of the silver frame (documented 1.1–1.5 m). */
   blackStoneHeight: 1.4,

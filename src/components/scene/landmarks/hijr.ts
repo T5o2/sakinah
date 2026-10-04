@@ -9,7 +9,7 @@ import {
   Shape,
   SphereGeometry,
 } from "three";
-import { HALF_X, HIJR } from "../lib/layout";
+import { HALF_X, HALF_Z, HIJR } from "../lib/layout";
 import { PALETTE } from "../lib/palette";
 import { part, place, type Part } from "../lib/parts";
 
@@ -103,6 +103,18 @@ export function createHijrBandGeometry(): BufferGeometry {
   g.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
   g.setIndex(indices);
   return g;
+}
+
+/** Depth of the gate posts across the opening (along z). */
+const GATE_POST_DEPTH = 0.12;
+
+/**
+ * How far along the Kaaba's Hijr wall, from each corner, the face of the
+ * nearer gate stands — where the shadharwan running round the corner ends.
+ */
+export function hijrGateFromCorner(): number {
+  const [, z] = hijrPoint(HIJR.arcHalfAngleDeg * DEG);
+  return HALF_Z - (Math.abs(z) + GATE_POST_DEPTH / 2);
 }
 
 /** The two openings, each from the Kaaba's marble base to the end of the wall. */
@@ -239,10 +251,10 @@ export function hijrParts(): {
   for (const { x0, x1, z } of openings()) {
     const mid = (x0 + x1) / 2;
     metal.push(
-      part(new BoxGeometry(0.1, h + 0.12, 0.12), PALETTE.gold, {
+      part(new BoxGeometry(0.1, h + 0.12, GATE_POST_DEPTH), PALETTE.gold, {
         position: [x0 + 0.05, (h + 0.12) / 2, z],
       }),
-      part(new BoxGeometry(0.1, h + 0.12, 0.12), PALETTE.gold, {
+      part(new BoxGeometry(0.1, h + 0.12, GATE_POST_DEPTH), PALETTE.gold, {
         position: [x1 - 0.05, (h + 0.12) / 2, z],
       }),
       part(new BoxGeometry(0.08, h, 0.1), PALETTE.gold, {

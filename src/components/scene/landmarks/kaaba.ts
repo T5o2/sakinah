@@ -17,6 +17,7 @@ import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js
 import { HALF_X, HALF_Z, KAABA } from "../lib/layout";
 import { PALETTE } from "../lib/palette";
 import { part, type Part } from "../lib/parts";
+import { hijrGateFromCorner } from "./hijr";
 
 /**
  * The Kaaba, built from:
@@ -490,9 +491,10 @@ export function kaabaParts(): {
   const silver: Part[] = [];
 
   // Shadharwan: along the two southern walls, round the Black Stone corner to
-  // the marble block, and along the door wall after the door. None on the
-  // Hijr side, and none from the marble block to the far edge of the door:
-  // there the wall stones run down to the floor.
+  // the marble block, and along the door wall after the door. On the Hijr
+  // side only a short return round each corner, up to the Hijr gate it meets
+  // (photo 61); none between the gates, and none from the marble block to the
+  // far edge of the door: there the wall stones run down to the floor.
   const doorWall = wallById("door");
   const { door, baseOutset: o } = KAABA;
   const doorX1 = door.fromBlackStoneCorner + door.width / 2;
@@ -504,6 +506,9 @@ export function kaabaParts(): {
     [doorWall, doorX1, doorWall.length],
     [wallById("southWest"), 0, KAABA.sizeX],
     [wallById("southEast"), 0, KAABA.sizeZ],
+    // Round the Iraqi and Shami corners, each up to its Hijr gate.
+    [wallById("hijr"), 0, hijrGateFromCorner()],
+    [wallById("hijr"), KAABA.sizeZ - hijrGateFromCorner(), KAABA.sizeZ],
   ];
   for (const [wall, x0, x1] of segments) {
     matte.push(shadharwan(wall, x0, x1));
@@ -513,9 +518,14 @@ export function kaabaParts(): {
       ...tieRings(wall, Math.max(x0, 0.3), Math.min(x1, wall.length - 0.3)),
     );
   }
-  // Convex hip where two runs meet (Yemeni and Black Stone corners): a square
-  // frustum whose faces share the runs' slope.
-  for (const z of [-HALF_Z, HALF_Z]) {
+  // Convex hip where two runs meet (at all four corners): a square frustum
+  // whose faces share the runs' slope.
+  for (const [x, z] of [
+    [-HALF_X, -HALF_Z],
+    [-HALF_X, HALF_Z],
+    [HALF_X, HALF_Z],
+    [HALF_X, -HALF_Z],
+  ] as const) {
     matte.push(
       part(
         new CylinderGeometry(
@@ -527,7 +537,7 @@ export function kaabaParts(): {
         ),
         PALETTE.marble,
         {
-          position: [-HALF_X, KAABA.baseHeight / 2, z],
+          position: [x, KAABA.baseHeight / 2, z],
           rotation: [0, Math.PI / 4, 0],
         },
       ),

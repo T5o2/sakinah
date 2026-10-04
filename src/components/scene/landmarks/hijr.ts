@@ -109,12 +109,13 @@ export function createHijrBandGeometry(): BufferGeometry {
 const GATE_POST_DEPTH = 0.12;
 
 /**
- * How far along the Kaaba's Hijr wall, from each corner, the face of the
- * nearer gate stands — where the shadharwan running round the corner ends.
+ * How far along the Kaaba's Hijr wall, from each corner, the middle of the
+ * nearer gate stands. The shadharwan running round the corner ends there,
+ * inside the gate, so its cut end never shows on the corner side.
  */
 export function hijrGateFromCorner(): number {
   const [, z] = hijrPoint(HIJR.arcHalfAngleDeg * DEG);
-  return HALF_Z - (Math.abs(z) + GATE_POST_DEPTH / 2);
+  return HALF_Z - Math.abs(z);
 }
 
 /** The two openings, each from the Kaaba's marble base to the end of the wall. */

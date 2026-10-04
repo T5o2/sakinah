@@ -292,11 +292,13 @@ export function createKiswaGeometry(): BufferGeometry {
 /** Sloped marble shadharwan along one wall segment (wall metres x0..x1). */
 function shadharwan(wall: Wall, x0: number, x1: number): Part {
   const { baseHeight: h, baseOutset: o } = KAABA;
+  // It sits on the dark granite slab, its top still at the base height.
+  const b = KAABA.blackStrip.slab;
   // Cross-section in (out, up), extruded along +z.
   const profile = new Shape();
-  profile.moveTo(0, 0);
-  profile.lineTo(o, 0);
-  profile.lineTo(o, 0.05);
+  profile.moveTo(0, b);
+  profile.lineTo(o, b);
+  profile.lineTo(o, b + 0.05);
   profile.lineTo(0.06, h);
   profile.lineTo(0, h);
   profile.closePath();
@@ -428,54 +430,62 @@ function blackStone(): { frame: Part; stone: Part } {
   };
 }
 
+/** Shadharwan runs along each wall, [x0, x1] in metres from its left end. */
+function shadharwanRuns(): Record<WallId, [number, number][]> {
+  const { door } = KAABA;
+  const doorX1 = door.fromBlackStoneCorner + door.width / 2;
+  const mb = KAABA.marbleBlock;
+  const toGate = hijrGateFromCorner();
+  return {
+    // From the Black Stone corner to the far side of the marble block, and
+    // from the far edge of the door to the Iraqi corner.
+    door: [
+      [0, mb.from + mb.width],
+      [doorX1, KAABA.sizeX],
+    ],
+    // Round the Iraqi and Shami corners, each into its Hijr gate.
+    hijr: [
+      [0, toGate],
+      [KAABA.sizeZ - toGate, KAABA.sizeZ],
+    ],
+    southWest: [[0, KAABA.sizeX]],
+    southEast: [[0, KAABA.sizeZ]],
+  };
+}
+
 /**
- * The dark granite strip set flush into the floor round the Kaaba. Each wall
- * is split into runs, each a band from `inner` to `outer` metres out from the
- * wall: just outside the shadharwan where there is one. Where there is none —
- * the Multazam and under the door (photo 54), and the whole Hijr side
- * (photo 55) — it fills the floor from the wall to the same outer line, so
- * the outer edge is one straight line all round. Runs overlap at the corners
- * so the strip goes round each one unbroken.
+ * The dark granite base round the Kaaba: one band, exactly as wide as the
+ * shadharwan's outset, all the way round. Under the shadharwan it is a thin
+ * slab the shadharwan sits on — never showing from above, only as a fine
+ * dark line beneath its edge from the side. Where there is no shadharwan
+ * (the Multazam and under the door, and the Hijr side between the gates) it
+ * lies flush with the floor (photos 54 and 55). Runs overlap at the corners,
+ * under the corner hips, so the band goes round each one unbroken.
  */
 function blackStrip(): Part[] {
-  const { width: w, height: h } = KAABA.blackStrip;
+  const { slab, flush } = KAABA.blackStrip;
   const o = KAABA.baseOutset;
-  const mb = KAABA.marbleBlock;
-  const doorX1 = KAABA.door.fromBlackStoneCorner + KAABA.door.width / 2;
-  /** [x0, x1, inner, outer] along the wall, in metres. */
-  const runs: Record<WallId, [number, number, number, number][]> = {
-    door: [
-      [0, mb.from + mb.width, o, o + w],
-      [mb.from + mb.width, doorX1, 0, o + w],
-      [doorX1, KAABA.sizeX, o, o + w],
-    ],
-    hijr: [[0, KAABA.sizeZ, 0, o + w]],
-    southWest: [[0, KAABA.sizeX, o, o + w]],
-    southEast: [[0, KAABA.sizeZ, o, o + w]],
-  };
-  // Outer edge of the strip on the neighbouring wall at each corner, so ends meet.
-  const order: WallId[] = ["door", "hijr", "southWest", "southEast"];
-  const outerAt = (id: WallId, end: "start" | "end") => {
-    const list = runs[id];
-    const run = end === "start" ? list[0] : list[list.length - 1];
-    return run ? run[3] : 0;
-  };
-
+  const runs = shadharwanRuns();
   const parts: Part[] = [];
-  order.forEach((id, i) => {
-    const wall = wallById(id);
-    const prev = order[(i + 3) % 4] as WallId;
-    const next = order[(i + 1) % 4] as WallId;
-    const list = runs[id];
-    list.forEach(([x0, x1, inner, outer], k) => {
-      const a = x0 - (k === 0 ? outerAt(prev, "end") : 0);
-      const b = x1 + (k === list.length - 1 ? outerAt(next, "start") : 0);
-      const g = new BoxGeometry(b - a, h, outer - inner);
-      g.translate((a + b) / 2, h / 2, (inner + outer) / 2);
+  for (const wall of WALLS) {
+    const L = wall.length;
+    const own = runs[wall.id];
+    // Split the wall at the shadharwan's ends: slab under it, flush elsewhere.
+    const cuts = [...new Set([0, ...own.flat(), L])].sort((p, q) => p - q);
+    for (let k = 0; k < cuts.length - 1; k++) {
+      const x0 = cuts[k] as number;
+      const x1 = cuts[k + 1] as number;
+      const mid = (x0 + x1) / 2;
+      const h = own.some(([a, b]) => mid > a && mid < b) ? slab : flush;
+      // Reach round the corners at the wall's ends, under the corner hips.
+      const a = x0 === 0 ? -o : x0;
+      const b = x1 === L ? L + o : x1;
+      const g = new BoxGeometry(b - a, h, o);
+      g.translate((a + b) / 2, h / 2, o / 2);
       g.applyMatrix4(wallMatrix(wall));
       parts.push({ geometry: g, color: PALETTE.granite });
-    });
-  });
+    }
+  }
   return parts;
 }
 
@@ -492,24 +502,14 @@ export function kaabaParts(): {
 
   // Shadharwan: along the two southern walls, round the Black Stone corner to
   // the marble block, and along the door wall after the door. On the Hijr
-  // side only a short return round each corner, up to the Hijr gate it meets
+  // side only a short return round each corner, into the Hijr gate it meets
   // (photo 61); none between the gates, and none from the marble block to the
   // far edge of the door: there the wall stones run down to the floor.
-  const doorWall = wallById("door");
-  const { door, baseOutset: o } = KAABA;
-  const doorX1 = door.fromBlackStoneCorner + door.width / 2;
-  const mb = KAABA.marbleBlock;
-  const blockEnd = mb.from + mb.width;
-  const segments: [Wall, number, number][] = [
-    // From the Black Stone corner to the far side of the marble block.
-    [doorWall, 0, blockEnd],
-    [doorWall, doorX1, doorWall.length],
-    [wallById("southWest"), 0, KAABA.sizeX],
-    [wallById("southEast"), 0, KAABA.sizeZ],
-    // Round the Iraqi and Shami corners, each up to its Hijr gate.
-    [wallById("hijr"), 0, hijrGateFromCorner()],
-    [wallById("hijr"), KAABA.sizeZ - hijrGateFromCorner(), KAABA.sizeZ],
-  ];
+  const { baseOutset: o } = KAABA;
+  const runs = shadharwanRuns();
+  const segments = WALLS.flatMap((wall) =>
+    runs[wall.id].map(([x0, x1]) => [wall, x0, x1] as const),
+  );
   for (const [wall, x0, x1] of segments) {
     matte.push(shadharwan(wall, x0, x1));
     // The short run under the marble block carries no rings.
@@ -519,7 +519,8 @@ export function kaabaParts(): {
     );
   }
   // Convex hip where two runs meet (at all four corners): a square frustum
-  // whose faces share the runs' slope.
+  // whose faces share the runs' slope, on the granite slab like the runs.
+  const slab = KAABA.blackStrip.slab;
   for (const [x, z] of [
     [-HALF_X, -HALF_Z],
     [-HALF_X, HALF_Z],
@@ -531,13 +532,13 @@ export function kaabaParts(): {
         new CylinderGeometry(
           0.06 * Math.SQRT2,
           o * Math.SQRT2,
-          KAABA.baseHeight,
+          KAABA.baseHeight - slab,
           4,
           1,
         ),
         PALETTE.marble,
         {
-          position: [x, KAABA.baseHeight / 2, z],
+          position: [x, slab + (KAABA.baseHeight - slab) / 2, z],
           rotation: [0, Math.PI / 4, 0],
         },
       ),
@@ -605,12 +606,13 @@ export function kaabaParts(): {
   silver.push(bs.frame);
   matte.push(bs.stone);
 
-  // Strip of small black tiles on the floor round the whole Kaaba: against
-  // the shadharwan's foot where there is one, against the wall where not.
+  // Dark granite base round the whole Kaaba: under the shadharwan, and
+  // flush with the floor where there is none.
   const strip = blackStrip();
 
   // Upright white marble block rising out of the shadharwan beside the Black
   // Stone, flush with its foot and with the end of its run.
+  const mb = KAABA.marbleBlock;
   const mbX = -HALF_X + mb.from + mb.width / 2;
   matte.push(
     part(new BoxGeometry(mb.width, mb.height, mb.depth), PALETTE.marble, {

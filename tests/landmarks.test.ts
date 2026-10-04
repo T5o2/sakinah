@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { buildLandmarkGeometries } from "../src/components/scene/landmarks";
 import { hijrLampPositions } from "../src/components/scene/landmarks/hijr";
-import { HIJR } from "../src/components/scene/lib/layout";
+import { kaabaParts } from "../src/components/scene/landmarks/kaaba";
+import {
+  HALF_X,
+  HALF_Z,
+  HIJR,
+  KAABA,
+} from "../src/components/scene/lib/layout";
+import { Box3 } from "three";
 import { triangleCount } from "../src/components/scene/lib/parts";
 import { BUDGET } from "../src/lib/config/scene";
 
@@ -42,6 +49,42 @@ describe("Hijr Ismail lamp posts", () => {
       const e =
         ((x - HIJR.centerX) / HIJR.radiusX) ** 2 + (z / HIJR.radiusZ) ** 2;
       expect(e).toBeCloseTo(1, 6);
+    }
+  });
+});
+
+describe("Kaaba base", () => {
+  const { matte, strip } = kaabaParts();
+  const box = (parts: { geometry: import("three").BufferGeometry }[]) => {
+    const b = new Box3();
+    for (const p of parts) {
+      p.geometry.computeBoundingBox();
+      b.union(p.geometry.boundingBox as Box3);
+    }
+    return b;
+  };
+
+  it("never lets the dark granite show beyond the shadharwan's edge", () => {
+    const o = KAABA.baseOutset;
+    const b = box(strip);
+    expect(b.min.x).toBeCloseTo(-HALF_X - o, 5);
+    expect(b.max.x).toBeCloseTo(HALF_X + o, 5);
+    expect(b.min.z).toBeCloseTo(-HALF_Z - o, 5);
+    expect(b.max.z).toBeCloseTo(HALF_Z + o, 5);
+  });
+
+  it("keeps the granite to a thin slab under the shadharwan", () => {
+    expect(box(strip).max.y).toBeCloseTo(KAABA.blackStrip.slab, 5);
+    // The shadharwan pieces (marble, low) all rest on that slab.
+    const low = matte.filter((p) => {
+      p.geometry.computeBoundingBox();
+      return (p.geometry.boundingBox as Box3).max.y <= KAABA.baseHeight + 1e-6;
+    });
+    expect(low.length).toBeGreaterThan(0);
+    for (const p of low) {
+      expect((p.geometry.boundingBox as Box3).min.y).toBeGreaterThanOrEqual(
+        KAABA.blackStrip.slab - 1e-6,
+      );
     }
   });
 });

@@ -108,8 +108,12 @@ export const KAABA = {
    * shadharwan, one piece with it, and is as deep as the shadharwan's foot.
    */
   marbleBlock: { from: 0.5, width: 0.5, depth: 0.45, height: 1.15, cap: 0.1 },
-  /** Strip of dark granite tiles set flush into the floor round the whole Kaaba. */
-  blackStrip: { width: 0.22, height: 0.001 },
+  /**
+   * Dark granite base round the whole Kaaba, as wide as the shadharwan's
+   * outset: a thin slab under the shadharwan (it shows only as a fine dark
+   * line beneath its edge), and flush with the floor where there is none.
+   */
+  blackStrip: { slab: 0.02, flush: 0.001 },
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;

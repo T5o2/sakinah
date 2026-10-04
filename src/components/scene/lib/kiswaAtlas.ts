@@ -121,6 +121,12 @@ const CORNER_SHIELD = {
   bottom: PANEL_TOP - SHIELD_H,
   /** Roundel diameter as a share of the height (photo 45). */
   roundel: 0.88,
+  /**
+   * The roundel must read from the default camera: a thick gold rim, set off
+   * from the square's gold by a dark band outside it and a dark field inside.
+   */
+  rim: 0.1,
+  halo: 0.035,
 };
 /**
  * Below the belt (photo 43): drops sit close to the panels, with one equal
@@ -523,23 +529,25 @@ function drop(p: Painter, cx: number, cy: number) {
  * The corner shield: a gold square — what must read from the mataf is its
  * crisp square outline — with a fine dark rule inside its edge, the bright
  * embroidery of the belt, and a large roundel at its centre, drawn like the
- * curtain's roundels. Painted centred on a corner edge (`edgeX`), half on
- * each wall.
+ * door's roundels: a thick gold ring with a rosette inside. Painted centred
+ * on a corner edge (`edgeX`), half on each wall.
  */
 function cornerShield(p: Painter, edgeX: number) {
-  const { halfWidth: hw, top, bottom, roundel } = CORNER_SHIELD;
+  const { halfWidth: hw, top, bottom, roundel, rim, halo } = CORNER_SHIELD;
   const x0 = edgeX - hw;
   const x1 = edgeX + hw;
   p.rect(GOLD, x0, bottom, x1, top);
   p.frame(GROUND, 0.016, x0 + 0.035, bottom + 0.035, x1 - 0.035, top - 0.035);
   brightFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.06);
-  curtainBigRoundel(
-    p,
-    edgeX,
-    (bottom + top) / 2,
-    ((top - bottom) * roundel) / 2,
-    false,
-  );
+
+  const cy = (bottom + top) / 2;
+  const r = ((top - bottom) * roundel) / 2;
+  p.disc(GROUND, edgeX, cy, r + halo);
+  p.disc(GOLD, edgeX, cy, r);
+  p.ring(GOLD_SOFT, 0.014, edgeX, cy, r - rim / 2);
+  p.disc(GROUND, edgeX, cy, r - rim);
+  p.rosette(GOLD, edgeX, cy, (r - rim) * 0.85, 8);
+  p.disc(GOLD_SOFT, edgeX, cy, r * 0.12);
 }
 
 /**
@@ -810,21 +818,14 @@ function curtainSmallRoundel(p: Painter, cx: number, cy: number, r: number) {
 
 /**
  * A large roundel beside the opening: gold like the rest of the curtain,
- * with dim silver accents (unless `accented` is off), and a gold disc at the
- * centre.
+ * with dim silver accents, and a gold disc at the centre.
  */
-function curtainBigRoundel(
-  p: Painter,
-  cx: number,
-  cy: number,
-  r: number,
-  accented = true,
-) {
+function curtainBigRoundel(p: Painter, cx: number, cy: number, r: number) {
   const circle = (ctx: Ctx, inset: number) => {
     ctx.beginPath();
     ctx.arc(cx, cy, r - inset, 0, Math.PI * 2);
   };
-  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], accented);
+  curtainShape(p, circle, [cx - r, cy - r, cx + r, cy + r], true);
   p.disc(GROUND, cx, cy, r * 0.27);
   p.disc(GOLD, cx, cy, r * 0.24);
   p.rosette(GOLD_SOFT, cx, cy, r * 0.21, 8);

@@ -109,7 +109,7 @@ export const KAABA = {
    */
   marbleBlock: { from: 0.5, width: 0.5, depth: 0.45, height: 1.15, cap: 0.1 },
   /** Strip of dark granite tiles set flush into the floor round the whole Kaaba. */
-  blackStrip: { width: 0.22, height: 0.004 },
+  blackStrip: { width: 0.22, height: 0.001 },
 } as const;
 
 export const HALF_X = KAABA.sizeX / 2;

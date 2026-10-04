@@ -428,31 +428,37 @@ function blackStone(): { frame: Part; stone: Part } {
 }
 
 /**
- * The black tile strip at the foot of the Kaaba. Each wall is split into runs
- * by how far the strip sits from the wall (the shadharwan's outset, or zero);
- * runs are joined by short connectors and overlap at the corners.
+ * The dark granite strip set flush into the floor round the Kaaba. Each wall
+ * is split into runs, each a band from `inner` to `outer` metres out from the
+ * wall: just outside the shadharwan where there is one, against the wall on
+ * the Hijr side. Between the marble block and the shadharwan after the door
+ * (the Multazam and under the door) it fills the whole floor from the wall to
+ * the same outer line (photo 54), so the strip's outer edge runs straight
+ * along the door wall. Runs overlap at the corners so the strip goes round
+ * each one unbroken.
  */
 function blackStrip(): Part[] {
   const { width: w, height: h } = KAABA.blackStrip;
   const o = KAABA.baseOutset;
   const mb = KAABA.marbleBlock;
   const doorX1 = KAABA.door.fromBlackStoneCorner + KAABA.door.width / 2;
-  const runs: Record<WallId, [number, number, number][]> = {
+  /** [x0, x1, inner, outer] along the wall, in metres. */
+  const runs: Record<WallId, [number, number, number, number][]> = {
     door: [
-      [0, mb.from + mb.width, o],
-      [mb.from + mb.width, doorX1, 0],
-      [doorX1, KAABA.sizeX, o],
+      [0, mb.from + mb.width, o, o + w],
+      [mb.from + mb.width, doorX1, 0, o + w],
+      [doorX1, KAABA.sizeX, o, o + w],
     ],
-    hijr: [[0, KAABA.sizeZ, 0]],
-    southWest: [[0, KAABA.sizeX, o]],
-    southEast: [[0, KAABA.sizeZ, o]],
+    hijr: [[0, KAABA.sizeZ, 0, w]],
+    southWest: [[0, KAABA.sizeX, o, o + w]],
+    southEast: [[0, KAABA.sizeZ, o, o + w]],
   };
-  // Offset of the strip on the neighbouring wall at each corner, so ends meet.
+  // Outer edge of the strip on the neighbouring wall at each corner, so ends meet.
   const order: WallId[] = ["door", "hijr", "southWest", "southEast"];
-  const offsetAt = (id: WallId, end: "start" | "end") => {
+  const outerAt = (id: WallId, end: "start" | "end") => {
     const list = runs[id];
     const run = end === "start" ? list[0] : list[list.length - 1];
-    return run ? run[2] : 0;
+    return run ? run[3] : 0;
   };
 
   const parts: Part[] = [];
@@ -461,26 +467,13 @@ function blackStrip(): Part[] {
     const prev = order[(i + 3) % 4] as WallId;
     const next = order[(i + 1) % 4] as WallId;
     const list = runs[id];
-    list.forEach(([x0, x1, off], k) => {
-      const startExt = k === 0 ? offsetAt(prev, "end") + w : 0;
-      const endExt = k === list.length - 1 ? offsetAt(next, "start") + w : 0;
-      const a = x0 - startExt;
-      const b = x1 + endExt;
-      const g = new BoxGeometry(b - a, h, w);
-      g.translate((a + b) / 2, h / 2, off + w / 2);
+    list.forEach(([x0, x1, inner, outer], k) => {
+      const a = x0 - (k === 0 ? outerAt(prev, "end") : 0);
+      const b = x1 + (k === list.length - 1 ? outerAt(next, "start") : 0);
+      const g = new BoxGeometry(b - a, h, outer - inner);
+      g.translate((a + b) / 2, h / 2, (inner + outer) / 2);
       g.applyMatrix4(wallMatrix(wall));
       parts.push({ geometry: g, color: PALETTE.granite });
-      // Connector where the next run on this wall sits at a different offset.
-      const following = list[k + 1];
-      if (following && following[2] !== off) {
-        const lo = Math.min(off, following[2]);
-        const hi = Math.max(off, following[2]);
-        const c = new BoxGeometry(w, h, hi - lo + w);
-        const cx = off > following[2] ? x1 + w / 2 : x1 - w / 2;
-        c.translate(cx, h / 2, lo + (hi - lo + w) / 2);
-        c.applyMatrix4(wallMatrix(wall));
-        parts.push({ geometry: c, color: PALETTE.granite });
-      }
     });
   });
   return parts;

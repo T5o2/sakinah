@@ -162,7 +162,11 @@ export function dropColumnCentres(): number[] {
 /** The belt is made of 16 pieces, four on each side (documented). */
 const BELT_PIECES_PER_WALL = 4;
 /** Yemeni corner: gold band down the corner, and the arch round the exposed stone. */
-const YEMENI_BAND_M = 0.26;
+/**
+ * Gold band down the Yemeni corner edge (photo 38): 0.65 × the belt's height
+ * wide, centred on the edge — half on each wall.
+ */
+const YEMENI_BAND_HALF = (KAABA.beltHeight * 0.65) / 2;
 const YEMENI_ARCH = { halfWidth: 0.7, top: 2.05, border: 0.14 };
 
 /** How strongly the height map bends the normals. */
@@ -635,23 +639,22 @@ function paintDropColumn(p: Painter, edgeX: number) {
 }
 
 /**
- * Yemeni corner, upper part: a vertical gold band down the corner edge with a
- * square medallion at its head. `edgeX` is the corner's x on this wall and
- * `inward` points along the wall away from the corner (+1 or −1).
+ * Yemeni corner: a gold band down the corner edge itself (photos 38 and 47).
+ * It leaves the belt, runs behind the corner shield (painted over it later),
+ * down the black kiswa and on over the white cloth and the stones without a
+ * break, its foot tucked under the padded border of the arch round the
+ * corner stone (painted over it next). The belt's gold and embroidery,
+ * geometric only. Painted centred on `edgeX`, half on each wall.
  */
-function paintYemeniBand(p: Painter, edgeX: number, inward: 1 | -1) {
-  const a = edgeX;
-  const b = edgeX + inward * YEMENI_BAND_M;
-  const x0 = Math.min(a, b);
-  const x1 = Math.max(a, b);
-  // It starts right under the corner shield (photo 47): its top end tucks
-  // behind the shield, so it seems to run on from the shield's flat bottom.
-  const top = CORNER_SHIELD.bottom + 0.1;
-  const bottom = KAABA.whiteClothTop + 0.05;
+function paintYemeniBand(p: Painter, edgeX: number) {
+  const x0 = edgeX - YEMENI_BAND_HALF;
+  const x1 = edgeX + YEMENI_BAND_HALF;
+  const top = BELT_BOTTOM + 0.02;
+  const bottom = YEMENI_ARCH.top + YEMENI_ARCH.border - 0.06;
   p.rect(GOLD, x0, bottom, x1, top);
-  p.rect(GROUND, x0 + 0.04, bottom + 0.04, x1 - 0.04, top - 0.04);
-  goldFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.06);
-  // Its head is the corner shield (painted with the other corners).
+  p.rect(GOLD_SOFT, x0 + 0.025, bottom, x0 + 0.045, top);
+  p.rect(GOLD_SOFT, x1 - 0.045, bottom, x1 - 0.025, top);
+  brightFill(p, x0 + 0.06, bottom, x1 - 0.06, top);
 }
 
 /**
@@ -1071,14 +1074,14 @@ function paintWall(p: Painter, wall: Wall) {
     case "southWest":
       // Yemeni corner at the right end.
       belowBelt(p, belowBeltRun(hw, L - hw, 2));
-      paintYemeniBand(p, L, -1);
+      paintYemeniBand(p, L);
       paintYemeniArch(p, L, -1);
       break;
     case "southEast":
       // Yemeni corner at the left end; Black Stone corner at the right, with
       // the other half of its drop column.
       belowBelt(p, belowBeltRun(hw, L - hw, 2));
-      paintYemeniBand(p, 0, 1);
+      paintYemeniBand(p, 0);
       paintYemeniArch(p, 0, 1);
       paintDropColumn(p, L);
       break;

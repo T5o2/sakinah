@@ -430,12 +430,11 @@ function blackStone(): { frame: Part; stone: Part } {
 /**
  * The dark granite strip set flush into the floor round the Kaaba. Each wall
  * is split into runs, each a band from `inner` to `outer` metres out from the
- * wall: just outside the shadharwan where there is one, against the wall on
- * the Hijr side. Between the marble block and the shadharwan after the door
- * (the Multazam and under the door) it fills the whole floor from the wall to
- * the same outer line (photo 54), so the strip's outer edge runs straight
- * along the door wall. Runs overlap at the corners so the strip goes round
- * each one unbroken.
+ * wall: just outside the shadharwan where there is one. Where there is none —
+ * the Multazam and under the door (photo 54), and the whole Hijr side
+ * (photo 55) — it fills the floor from the wall to the same outer line, so
+ * the outer edge is one straight line all round. Runs overlap at the corners
+ * so the strip goes round each one unbroken.
  */
 function blackStrip(): Part[] {
   const { width: w, height: h } = KAABA.blackStrip;
@@ -449,7 +448,7 @@ function blackStrip(): Part[] {
       [mb.from + mb.width, doorX1, 0, o + w],
       [doorX1, KAABA.sizeX, o, o + w],
     ],
-    hijr: [[0, KAABA.sizeZ, 0, w]],
+    hijr: [[0, KAABA.sizeZ, 0, o + w]],
     southWest: [[0, KAABA.sizeX, o, o + w]],
     southEast: [[0, KAABA.sizeZ, o, o + w]],
   };

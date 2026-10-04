@@ -66,6 +66,8 @@ const GROUND = surf("#0f0d0a", 0.3, 0.7, 0.1, 0.45);
 const PADDED = surf("#0a0a0b", 0.3, 0.55, 0, 0.95);
 const GOLD = surf(PALETTE.gold, 1, 0.3, 0.85, 0.75);
 const GOLD_SOFT = surf(PALETTE.goldSoft, 1, 0.26, 0.85, 0.92);
+/** Deep gold: fine contour lines on gold that must not read as dark. */
+const GOLD_DEEP = surf(PALETTE.goldDeep, 1, 0.35, 0.85, 0.6);
 /**
  * Dim silver-white thread: only fine accents (the small stars of the lattice)
  * inside the curtain's three distinguished shapes, about 5–10% of each shape.
@@ -122,11 +124,11 @@ const CORNER_SHIELD = {
   /** Roundel diameter as a share of the height (photo 45). */
   roundel: 0.88,
   /**
-   * The roundel must read from the default camera: a thick gold rim, set off
-   * from the square's gold by a dark band outside it and a dark field inside.
+   * Its frame: a band of light gold, edged by fine deep-gold lines. The
+   * whole shield stays light gold with no dark areas (photo 52).
    */
-  rim: 0.1,
-  halo: 0.035,
+  rim: 0.07,
+  rimLine: 0.012,
 };
 /**
  * Below the belt (photo 43): drops sit close to the panels, with one equal
@@ -526,28 +528,40 @@ function drop(p: Painter, cx: number, cy: number) {
 }
 
 /**
- * The corner shield: a gold square — what must read from the mataf is its
- * crisp square outline — with a fine dark rule inside its edge, the bright
- * embroidery of the belt, and a large roundel at its centre, drawn like the
- * door's roundels: a thick gold ring with a rosette inside. Painted centred
- * on a corner edge (`edgeX`), half on each wall.
+ * The corner shield (photo 52): all light gold, as bright as the belt or a
+ * little brighter, with no dark areas. A gold square — its crisp square
+ * outline is what must read from the mataf — with a light-gold rule inside
+ * its edge and light-gold ornament; and a large roundel at its centre,
+ * marked out by a light-gold frame between fine deep-gold lines, with a
+ * simple gold rosette inside. Painted centred on a corner edge (`edgeX`),
+ * half on each wall.
  */
 function cornerShield(p: Painter, edgeX: number) {
-  const { halfWidth: hw, top, bottom, roundel, rim, halo } = CORNER_SHIELD;
+  const { halfWidth: hw, top, bottom, roundel, rim, rimLine } = CORNER_SHIELD;
   const x0 = edgeX - hw;
   const x1 = edgeX + hw;
   p.rect(GOLD, x0, bottom, x1, top);
-  p.frame(GROUND, 0.016, x0 + 0.035, bottom + 0.035, x1 - 0.035, top - 0.035);
-  brightFill(p, x0 + 0.06, bottom + 0.06, x1 - 0.06, top - 0.06);
+  p.frame(GOLD_SOFT, 0.02, x0 + 0.03, bottom + 0.03, x1 - 0.03, top - 0.03);
+  goldFill(
+    p,
+    x0 + 0.06,
+    bottom + 0.06,
+    x1 - 0.06,
+    top - 0.06,
+    GOLD_SOFT,
+    GOLD_SOFT,
+    0.8,
+  );
 
   const cy = (bottom + top) / 2;
   const r = ((top - bottom) * roundel) / 2;
-  p.disc(GROUND, edgeX, cy, r + halo);
-  p.disc(GOLD, edgeX, cy, r);
-  p.ring(GOLD_SOFT, 0.014, edgeX, cy, r - rim / 2);
-  p.disc(GROUND, edgeX, cy, r - rim);
-  p.rosette(GOLD, edgeX, cy, (r - rim) * 0.85, 8);
-  p.disc(GOLD_SOFT, edgeX, cy, r * 0.12);
+  p.disc(GOLD_DEEP, edgeX, cy, r);
+  p.disc(GOLD_SOFT, edgeX, cy, r - rimLine);
+  p.disc(GOLD_DEEP, edgeX, cy, r - rim);
+  p.disc(GOLD, edgeX, cy, r - rim - rimLine);
+  p.rosette(GOLD_SOFT, edgeX, cy, (r - rim) * 0.8, 8);
+  p.ring(GOLD_DEEP, rimLine, edgeX, cy, (r - rim) * 0.32);
+  p.disc(GOLD_SOFT, edgeX, cy, (r - rim) * 0.14);
 }
 
 /**
@@ -1012,7 +1026,8 @@ export function belowBeltRun(
   g = BELOW_BELT_GAP,
 ): BelowBeltItem[] {
   const dw = DROP_WIDTH;
-  const width = (right - left - (panels + 1) * dw - 2 * (panels + 1) * g) / panels;
+  const width =
+    (right - left - (panels + 1) * dw - 2 * (panels + 1) * g) / panels;
   if (width <= 0) throw new Error("No room for the panels below the belt");
   const items: BelowBeltItem[] = [];
   let x = left + g;

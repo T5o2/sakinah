@@ -59,8 +59,21 @@ interface Pose {
   leanToward?: Vector3;
   /** Middle of the right palm, in the figure's own frame; none = at ease. */
   rightHand?: Vector3;
+  /** Where the reaching right elbow points, in the figure's own frame. */
+  rightElbowPole?: Vector3;
   /** Left arm hanging at the side instead of behind the back. */
   leftAtSide?: boolean;
+}
+
+interface GuardBody {
+  camo: Part[];
+  solid: Part[];
+  /** Middle of each palm, right first. */
+  palms: Vector3[];
+  /** Reaching right arm: shoulder, elbow, wrist, palm (empty when at ease). */
+  rightArm: Vector3[];
+  /** Between the ankles, middle of the hips, centre of the head. */
+  spine: Vector3[];
 }
 
 const AT_EASE: Pose = { stanceHalf: 0.19, leanDeg: 0 };
@@ -120,19 +133,35 @@ export function elbowFor(
 export function guardParts(
   beret: Beret,
   pose: Pose = AT_EASE,
-): { camo: Part[]; solid: Part[]; palms: Vector3[] } {
+): GuardBody {
   const camo: Part[] = [];
   const palms: Vector3[] = [];
+  const rightArm: Vector3[] = [];
   const solid: Part[] = [];
   const c = (g: BufferGeometry) => camo.push({ geometry: g, color: PALETTE.guardCamo });
   const s = (g: BufferGeometry, color: string) => solid.push({ geometry: g, color });
   const v = (x: number, y: number, z: number) => new Vector3(x, y, z);
-
-  // Legs and boots: feet apart, body straight.
   const { boot } = BODY;
+  const ankleY = boot.shaft - 0.02;
+
+  // Lean from the ankles: the whole body above the boots turns about the
+  // point between them, so ankles, hips and head stay on one straight line
+  // with no bend at the waist; the boots stay flat on the floor. Tipping
+  // "up" towards the lean direction is a turn about up × direction.
+  const leanAxis = UP.clone()
+    .cross(pose.leanToward ?? v(-1, 0, 0))
+    .normalize();
+  const leanM = new Matrix4()
+    .makeTranslation(0, ankleY, 0)
+    .multiply(new Matrix4().makeRotationAxis(leanAxis, pose.leanDeg * DEG))
+    .multiply(new Matrix4().makeTranslation(0, -ankleY, 0));
+  const leanInv = leanM.clone().invert();
+
+  // Legs and boots: feet apart. Each leg runs from its ankle, fixed on the
+  // boot, up to its hip joint where the leaning body puts it.
   for (const side of [-1, 1]) {
-    const hip = v(side * BODY.hipHalf, BODY.hip, 0);
-    const ankle = v(side * pose.stanceHalf, boot.shaft - 0.02, 0);
+    const hip = v(side * BODY.hipHalf, BODY.hip, 0).applyMatrix4(leanM);
+    const ankle = v(side * pose.stanceHalf, ankleY, 0);
     const knee = hip.clone().lerp(ankle, 0.5).add(v(0, 0, 0.02));
     c(limb(hip, knee, 0.09, 0.068));
     c(limb(knee, ankle, 0.068, 0.058));
@@ -155,7 +184,7 @@ export function guardParts(
     );
   }
 
-  // Upper body, built straight, then leaned about the hips as one piece.
+  // Upper body, built straight, then leaned with the legs as one piece.
   const upper: Part[] = [];
   const uc = (g: BufferGeometry) => upper.push({ geometry: g, color: PALETTE.guardCamo });
   const us = (g: BufferGeometry, color: string) => upper.push({ geometry: g, color });
@@ -210,15 +239,6 @@ export function guardParts(
   );
 
   // Arms. At ease: hands clasped at the small of the back (photo 82).
-  // Tipping "up" towards the lean direction is a turn about up × direction.
-  const leanAxis = UP.clone()
-    .cross(pose.leanToward ?? v(-1, 0, 0))
-    .normalize();
-  const leanM = new Matrix4()
-    .makeTranslation(0, BODY.hip, 0)
-    .multiply(new Matrix4().makeRotationAxis(leanAxis, pose.leanDeg * DEG))
-    .multiply(new Matrix4().makeTranslation(0, -BODY.hip, 0));
-  const leanInv = leanM.clone().invert();
   for (const side of [-1, 1]) {
     const sh = v(side * BODY.shoulderHalf, BODY.shoulderY, -0.01);
     let elbow: Vector3;
@@ -229,10 +249,16 @@ export function guardParts(
       const target = pose.rightHand.clone().applyMatrix4(leanInv);
       const lower = BODY.forearm + BODY.hand;
       // Reaching down and out to his side, the elbow turned out.
-      elbow = elbowFor(sh, target, BODY.upperArm, lower, v(-1, 0.2, 0.1));
+      const pole = (pose.rightElbowPole ?? v(-1, 0.2, 0.1))
+        .clone()
+        .transformDirection(leanInv);
+      elbow = elbowFor(sh, target, BODY.upperArm, lower, pole);
       const dir = target.clone().sub(elbow).normalize();
       wrist = elbow.clone().addScaledVector(dir, BODY.forearm);
       palm = elbow.clone().addScaledVector(dir, lower);
+      rightArm.push(
+        ...[sh, elbow, wrist, palm].map((p) => p.clone().applyMatrix4(leanM)),
+      );
     } else if (side === 1 && pose.leftAtSide) {
       elbow = v(side * 0.235, 1.13, -0.02);
       wrist = v(side * 0.25, 0.87, 0.02);
@@ -254,7 +280,12 @@ export function guardParts(
     (p.color === PALETTE.guardCamo ? camo : solid).push(p);
   }
 
-  return { camo, solid, palms };
+  const spine = [
+    v(0, ankleY, 0),
+    v(0, BODY.hip, 0).applyMatrix4(leanM),
+    v(0, BODY.headY, 0).applyMatrix4(leanM),
+  ];
+  return { camo, solid, palms, rightArm, spine };
 }
 
 /** Smooth 3-D value noise in [0, 1], deterministic. */
@@ -334,23 +365,24 @@ export function strapRingCentre(): Vector3 {
 
 /** Half the gap between the folded strap's two strands, and its thickness. */
 const STRAND_HALF = 0.028;
-const STRAP_RADIUS = 0.026;
-/** Half-width of the opening the strands spread to round the guard's hand. */
-const OPENING_HALF = 0.075;
+export const STRAP_RADIUS = 0.026;
 
-/** Middle of the Black Stone guard's palm, inside the strap's bottom opening, in world metres. */
+/**
+ * Middle of the Black Stone guard's palm, in world metres: slipped in behind
+ * the strap's bottom loop, between the cloth and the wall (photo 93).
+ */
 export function strapGripPoint(): Vector3 {
   const { along, handY } = GUARDS.strap;
-  return new Vector3(-HALF_X + along, handY, HALF_Z + 0.08);
+  return new Vector3(-HALF_X + along, handY, HALF_Z + 0.05);
 }
 
 /**
- * The folded black cloth strap (photos 89, 91): one loop over the bottom of
- * the ring, its two strands hanging side by side down the wall, then
- * spreading into an opening drawn out from the wall by the guard's hand,
- * which rests in the fold. Matte cloth, so it joins the guards' mesh.
+ * Centre line of the folded strap (photos 89, 91, 93): one closed loop over
+ * the bottom of the ring, its two strands hanging side by side against the
+ * wall, then standing out from it over the guard's forearm and hand, which
+ * are slipped in behind them, and folding back under his palm.
  */
-export function strapParts(): Part[] {
+export function strapCurve(): CatmullRomCurve3 {
   const { bottomY, ringRadius } = GUARDS.strap;
   const ring = strapRingCentre();
   const x = ring.x;
@@ -358,28 +390,31 @@ export function strapParts(): Part[] {
   const top = ring.y - ringRadius + 0.009 + STRAP_RADIUS;
   const wallZ = HALF_Z + STRAP_RADIUS + 0.01;
   const hand = strapGripPoint();
+  const front = HALF_Z + GUARDS.strap.front;
   const strand = (s: 1 | -1) => [
     new Vector3(x + s * 0.012, top - 0.02, ring.z),
     new Vector3(x + s * STRAND_HALF, top - 0.2, wallZ + 0.01),
-    new Vector3(x + s * STRAND_HALF, hand.y + 0.3, wallZ),
-    // The opening: the strands part and come out from the wall round the hand.
-    new Vector3(x + s * 0.05, hand.y + 0.13, wallZ + 0.02),
-    new Vector3(x + s * OPENING_HALF, hand.y, hand.z - 0.01),
-    new Vector3(x + s * 0.05, bottomY + 0.035, hand.z),
+    new Vector3(x + s * STRAND_HALF, GUARDS.strap.offWallY, wallZ + 0.01),
+    // Out over the forearm, then down in front of the hand.
+    new Vector3(x + s * 0.034, GUARDS.strap.outY, front - 0.005),
+    new Vector3(x + s * 0.036, hand.y, front + 0.005),
+    new Vector3(x + s * 0.035, bottomY + 0.045, hand.z + 0.065),
   ];
-  const points = [
-    new Vector3(x, top, ring.z),
-    ...strand(1),
-    new Vector3(x, bottomY, hand.z),
-    ...strand(-1).reverse(),
-  ];
-  const tube = new TubeGeometry(
-    new CatmullRomCurve3(points, true),
-    96,
-    STRAP_RADIUS,
-    6,
+  return new CatmullRomCurve3(
+    [
+      new Vector3(x, top, ring.z),
+      ...strand(1),
+      // The fold, under the palm.
+      new Vector3(x, bottomY, hand.z + 0.015),
+      ...strand(-1).reverse(),
+    ],
     true,
   );
+}
+
+/** The folded black cloth strap. Matte cloth, so it joins the guards' mesh. */
+export function strapParts(): Part[] {
+  const tube = new TubeGeometry(strapCurve(), 120, STRAP_RADIUS, 6, true);
   return [{ geometry: tube, color: PALETTE.guardStrap }];
 }
 
@@ -430,6 +465,10 @@ export function guardPlacements(): GuardPlacement[] {
         // Towards the strap along the wall (world −X), not into the wall.
         leanToward: new Vector3(-1, 0, 0).transformDirection(toLocal),
         rightHand: strapGripPoint().applyMatrix4(toLocal),
+        // Elbow out towards the stone and down, close to the wall: the upper
+        // arm crosses in front of the strap where it lies flat, and the
+        // forearm comes in behind it, between the cloth and the wall.
+        rightElbowPole: new Vector3(-1, -0.9, -0.1).transformDirection(toLocal),
         leftAtSide: true,
       },
     },
@@ -457,16 +496,18 @@ export function guardPlacements(): GuardPlacement[] {
   ];
 }
 
-/** One guard's parts moved to its place in the world; palms in world metres. */
-export function placedGuardParts(g: GuardPlacement): {
-  camo: Part[];
-  solid: Part[];
-  palms: Vector3[];
-} {
+/** One guard's parts moved to its place in the world; key points in world metres. */
+export function placedGuardParts(g: GuardPlacement): GuardBody {
   const m = placementMatrix(g.position, g.yawDeg);
   const parts = guardParts(g.beret, g.pose);
   for (const p of [...parts.camo, ...parts.solid]) p.geometry.applyMatrix4(m);
-  return { ...parts, palms: parts.palms.map((p) => p.applyMatrix4(m)) };
+  const place = (points: Vector3[]) => points.map((p) => p.applyMatrix4(m));
+  return {
+    ...parts,
+    palms: place(parts.palms),
+    rightArm: place(parts.rightArm),
+    spine: place(parts.spine),
+  };
 }
 
 /** All four guards, placed, and the strap, as one geometry with vertex colours. */

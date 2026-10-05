@@ -255,7 +255,17 @@ export const GUARDS = {
      * waist (1.60 m) before he leant on it.
      */
     handY: 1.5,
-    bottomY: 1.42,
+    bottomY: 1.4,
+    /**
+     * The guard's hand is slipped in behind the loop (photo 93): the strands
+     * lie flat on the wall down to here, where his upper arm crosses in front
+     * of them…
+     */
+    offWallY: 1.86,
+    /** …and stand out from it from here down, in front of his forearm and hand… */
+    outY: 1.64,
+    /** …this far from the wall. */
+    front: 0.175,
   },
   /**
    * Yemeni corner (photo 86): on the floor just outside the shadharwan on

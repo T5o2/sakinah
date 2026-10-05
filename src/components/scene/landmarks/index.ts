@@ -1,5 +1,5 @@
 import { BufferAttribute, type BufferGeometry } from "three";
-import { guardStepParts } from "../figures/guards";
+import { guardStepParts, strapRingParts } from "../figures/guards";
 import { mergeParts } from "../lib/parts";
 import { createKiswaGeometry, kaabaParts } from "./kaaba";
 import {
@@ -55,7 +55,13 @@ export function buildLandmarkGeometries(): LandmarkGeometries {
       // The Black Stone guard's marble step, behind the marble block.
       ...guardStepParts(),
     ]),
-    metal: mergeParts([...kaaba.metal, ...hijr.metal, ...maqam.metal]),
+    metal: mergeParts([
+      ...kaaba.metal,
+      ...hijr.metal,
+      ...maqam.metal,
+      // The ring the Black Stone guard's strap hangs from.
+      ...strapRingParts(),
+    ]),
     silver: mergeParts(kaaba.silver),
     lanternGlass: mergeParts(hijr.lanternGlass),
     maqamLattice: createMaqamLatticeGeometry(),

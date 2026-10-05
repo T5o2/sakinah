@@ -1,11 +1,14 @@
 import {
   BoxGeometry,
   type BufferGeometry,
+  CatmullRomCurve3,
   Color,
   CylinderGeometry,
   Matrix4,
   Quaternion,
   SphereGeometry,
+  TorusGeometry,
+  TubeGeometry,
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
@@ -54,6 +57,8 @@ interface Pose {
   leanDeg: number;
   /** Middle of the right palm, in the figure's own frame; none = at ease. */
   rightHand?: Vector3;
+  /** Left arm hanging at the side instead of behind the back. */
+  leftAtSide?: boolean;
 }
 
 const AT_EASE: Pose = { stanceHalf: 0.19, leanDeg: 0 };
@@ -217,10 +222,15 @@ export function guardParts(
       // Reaching arm: solved in the leaned frame the shoulder ends up in.
       const target = pose.rightHand.clone().applyMatrix4(leanInv);
       const lower = BODY.forearm + BODY.hand;
-      elbow = elbowFor(sh, target, BODY.upperArm, lower, v(-0.3, -1, 0.4));
+      // Raised beside him, the elbow dropping down and out to his side.
+      elbow = elbowFor(sh, target, BODY.upperArm, lower, v(-0.6, -1, 0.15));
       const dir = target.clone().sub(elbow).normalize();
       wrist = elbow.clone().addScaledVector(dir, BODY.forearm);
       palm = elbow.clone().addScaledVector(dir, lower);
+    } else if (side === 1 && pose.leftAtSide) {
+      elbow = v(side * 0.235, 1.13, -0.02);
+      wrist = v(side * 0.25, 0.87, 0.02);
+      palm = v(side * 0.255, 0.8, 0.03);
     } else {
       elbow = v(side * 0.25, 1.15, -0.09);
       wrist = v(side * 0.07, 1.0, -0.17);
@@ -310,11 +320,82 @@ export interface GuardPlacement {
   pose: Pose;
 }
 
-/** Where the Black Stone guard's palm rests on the door wall, in world metres. */
-export function blackStoneHandTarget(): Vector3 {
-  const { hand } = GUARDS.blackStone;
-  // Palm centre a hand's thickness off the wall stones.
-  return new Vector3(-HALF_X + hand.along, hand.y, HALF_Z + 0.03);
+/** Centre of the strap's ring, in world metres, standing out from the door wall. */
+export function strapRingCentre(): Vector3 {
+  const { along, ringY, ringRadius } = GUARDS.strap;
+  return new Vector3(-HALF_X + along, ringY, HALF_Z + ringRadius + 0.012);
+}
+
+/** Half the gap between the folded strap's two strands, and its thickness. */
+const STRAND_HALF = 0.028;
+const STRAP_RADIUS = 0.026;
+
+/** Where the Black Stone guard's palm closes on the strap's nearer strand, in world metres. */
+export function strapGripPoint(): Vector3 {
+  const { along, gripY } = GUARDS.strap;
+  return new Vector3(
+    -HALF_X + along + STRAND_HALF + 0.02,
+    gripY,
+    HALF_Z + 0.075,
+  );
+}
+
+/**
+ * The folded black cloth strap (photo 89): one loop over the bottom of the
+ * ring, its two strands hanging side by side down the wall to the fold at
+ * the guard's waist; the nearer strand is drawn out a little into his hand.
+ * Matte cloth, so it joins the guards' mesh.
+ */
+export function strapParts(): Part[] {
+  const { bottomY, ringRadius } = GUARDS.strap;
+  const ring = strapRingCentre();
+  const x = ring.x;
+  // Centre of the cloth where it lies over the ring's bottom bar.
+  const top = ring.y - ringRadius + 0.009 + STRAP_RADIUS;
+  const wallZ = HALF_Z + STRAP_RADIUS + 0.01;
+  const grip = strapGripPoint();
+  const strand = (s: 1 | -1) => [
+    new Vector3(x + s * 0.012, top - 0.02, ring.z),
+    new Vector3(x + s * STRAND_HALF, top - 0.2, wallZ + 0.01),
+    s > 0
+      ? new Vector3(x + STRAND_HALF + 0.008, grip.y, grip.z - 0.03)
+      : new Vector3(x - STRAND_HALF, grip.y, wallZ),
+    new Vector3(x + s * STRAND_HALF, bottomY + 0.15, wallZ),
+    new Vector3(x + s * 0.016, bottomY + 0.015, wallZ),
+  ];
+  const points = [
+    new Vector3(x, top, ring.z),
+    ...strand(1),
+    new Vector3(x, bottomY, wallZ),
+    ...strand(-1).reverse(),
+  ];
+  const tube = new TubeGeometry(
+    new CatmullRomCurve3(points, true),
+    96,
+    STRAP_RADIUS,
+    6,
+    true,
+  );
+  return [{ geometry: tube, color: PALETTE.guardStrap }];
+}
+
+/**
+ * The small metal ring the strap hangs from, above the guard's head, and the
+ * staple holding it to the wall. Merged with the other metal.
+ */
+export function strapRingParts(): Part[] {
+  const { ringRadius } = GUARDS.strap;
+  const c = strapRingCentre();
+  // Ring plane holds the wall's normal and the vertical, like the shadharwan's rings.
+  const ring = new TorusGeometry(ringRadius, 0.009, 8, 20).rotateY(
+    Math.PI / 2,
+  );
+  return [
+    part(ring, PALETTE.silver, { position: [c.x, c.y, c.z] }),
+    part(new BoxGeometry(0.04, 0.03, 0.02), PALETTE.silver, {
+      position: [c.x, c.y + ringRadius, HALF_Z + 0.01],
+    }),
+  ];
 }
 
 function placementMatrix(position: Vector3, yawDeg: number): Matrix4 {
@@ -342,7 +423,8 @@ export function guardPlacements(): GuardPlacement[] {
       pose: {
         stanceHalf: 0.13,
         leanDeg: bs.leanDeg,
-        rightHand: blackStoneHandTarget().applyMatrix4(toLocal),
+        rightHand: strapGripPoint().applyMatrix4(toLocal),
+        leftAtSide: true,
       },
     },
     {
@@ -381,10 +463,10 @@ export function placedGuardParts(g: GuardPlacement): {
   return { ...parts, palms: parts.palms.map((p) => p.applyMatrix4(m)) };
 }
 
-/** All four guards, placed, as one geometry with vertex colours. */
+/** All four guards, placed, and the strap, as one geometry with vertex colours. */
 export function createGuardsGeometry(): BufferGeometry {
   const camo: Part[] = [];
-  const solid: Part[] = [];
+  const solid: Part[] = strapParts();
   for (const g of guardPlacements()) {
     const parts = placedGuardParts(g);
     camo.push(...parts.camo);

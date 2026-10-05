@@ -36,6 +36,8 @@ export const PALETTE = {
   guardHair: "#1a1512",
   beretRed: "#a3232a",
   beretBlack: "#141519",
+  /** The black cloth strap the Black Stone guard holds. */
+  guardStrap: "#111113",
   lampWarm: "#ffd9a0",
   keyLight: "#ffe8c8",
   arcadeGlow: "#1b140c",

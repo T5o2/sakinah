@@ -225,18 +225,34 @@ export const GUARDS = {
     cap: 0.04,
   },
   /**
-   * Black Stone guard (photos 78, 79, 83): on the step, leaning a little
-   * towards the stone, his right arm out to the side at shoulder height, the
-   * palm flat on the dark wall stones just beside the silver frame's upper
-   * end, above the marble block.
+   * Black Stone guard (photos 78, 79, 83, 89): on the step, leaning a little
+   * towards the stone. His right hand, raised beside him, holds the folded
+   * black cloth strap hanging from a ring on the wall; the left hangs at his
+   * side.
    */
   blackStone: {
     along: KAABA.marbleBlock.from + KAABA.marbleBlock.width + 0.25,
     out: 0.27,
     yawDeg: -30,
     leanDeg: 6,
-    /** Palm on the door wall: metres from the Black Stone corner, height. */
-    hand: { along: 0.49, y: 1.95 },
+  },
+  /**
+   * The strap the Black Stone guard holds (photo 89): black cloth, folded in
+   * two, hanging from a small metal ring on the door wall above his head
+   * down to his waist. The ring sits just above the exposed stones, on the
+   * white cloth: with the stones ending at 2.35 m and the guard's head at
+   * about 2.33 m there is no room above his head on the stone, and the user
+   * chose the cloth. Heights from the mataf floor.
+   */
+  strap: {
+    /** Metres from the Black Stone corner along the door wall, over the marble block. */
+    along: 0.75,
+    ringY: 2.45,
+    ringRadius: 0.055,
+    /** The fold at the bottom: the guard's waist (step 0.60 + 1.00). */
+    bottomY: 1.6,
+    /** Where his hand closes on it, a little above his shoulder. */
+    gripY: 2.05,
   },
   /**
    * Yemeni corner (photo 86): on the floor just outside the shadharwan on

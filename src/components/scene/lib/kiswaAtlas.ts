@@ -5,6 +5,7 @@ import {
   KISWA_ATLAS,
   KISWA_Y0,
   KISWA_Y1,
+  MIZAB_SWATCH,
   SITARA_APEX,
   SITARA_HEM,
   SITARA_TOP,
@@ -637,6 +638,166 @@ function paintDropColumn(p: Painter, edgeX: number) {
 }
 
 /**
+ * The mizab's base ornament (photos 70 and 72): a pierced gold piece on the
+ * kiswa round the root of the spout — wings curling up either side of the
+ * channel, sweeping down to a point, with scrolls and a heart inside. Gold
+ * tracery on the black, like the drops' ornament; the kiswa shows through.
+ * `cx` is the spout's centre along the wall, `top` the top of its channel.
+ */
+function mizabCrest(p: Painter, cx: number, top: number) {
+  const { width, height } = KAABA.mizab.crest;
+  const hw = width / 2;
+  const bottom = top - height;
+  const line = 0.04;
+  const trace = (draw: (ctx: Ctx) => void, w = line) =>
+    p.with(GOLD, (ctx) => {
+      ctx.lineWidth = w;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      draw(ctx);
+      ctx.stroke();
+    });
+  for (const s of [-1, 1]) {
+    const X = (x: number) => cx + s * x;
+    // Outer edge: from the wing tip down to the point.
+    trace((ctx) => {
+      ctx.moveTo(X(hw - 0.03), top - 0.02);
+      ctx.bezierCurveTo(
+        X(hw * 0.7),
+        top - 0.03,
+        X(hw * 0.62),
+        top - height * 0.3,
+        X(hw * 0.45),
+        top - height * 0.5,
+      );
+      ctx.bezierCurveTo(
+        X(hw * 0.28),
+        top - height * 0.72,
+        X(hw * 0.1),
+        bottom + height * 0.12,
+        X(0),
+        bottom,
+      );
+    }, 0.055);
+    // An inner contour, following the outer one.
+    trace((ctx) => {
+      ctx.moveTo(X(hw * 0.78), top - 0.1);
+      ctx.bezierCurveTo(
+        X(hw * 0.55),
+        top - height * 0.3,
+        X(hw * 0.25),
+        top - height * 0.6,
+        X(0.03),
+        bottom + height * 0.16,
+      );
+    }, 0.03);
+    // Curl at the wing tip.
+    trace((ctx) => ctx.arc(X(hw - 0.06), top - 0.075, 0.04, 0, Math.PI * 2));
+    // Upper scroll along the wing, curling in under it.
+    trace((ctx) => {
+      ctx.moveTo(X(0.05), top - 0.09);
+      ctx.bezierCurveTo(
+        X(0.14),
+        top - 0.04,
+        X(hw * 0.72),
+        top - 0.07,
+        X(hw * 0.7),
+        top - 0.17,
+      );
+      ctx.arc(X(hw * 0.6), top - 0.17, hw * 0.1, 0, Math.PI, s > 0);
+    });
+    // Lower scroll from the centre line out towards the edge.
+    trace((ctx) => {
+      ctx.moveTo(X(0.02), top - height * 0.58);
+      ctx.bezierCurveTo(
+        X(0.08),
+        top - height * 0.42,
+        X(hw * 0.46),
+        top - height * 0.4,
+        X(hw * 0.42),
+        top - height * 0.3,
+      );
+    });
+    // Leaves in each wing.
+    p.with(GOLD, (ctx) => {
+      ctx.beginPath();
+      ctx.ellipse(
+        X(hw * 0.38),
+        top - height * 0.22,
+        0.06,
+        0.028,
+        s * 0.5,
+        0,
+        Math.PI * 2,
+      );
+      ctx.ellipse(
+        X(hw * 0.25),
+        top - height * 0.72,
+        0.05,
+        0.024,
+        -s * 0.9,
+        0,
+        Math.PI * 2,
+      );
+      ctx.ellipse(
+        X(hw * 0.82),
+        top - 0.2,
+        0.045,
+        0.022,
+        s * 1.2,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    });
+    // A curl low in each side, under the scroll.
+    trace((ctx) =>
+      ctx.arc(X(hw * 0.3), top - height * 0.5, 0.045, 0, Math.PI * 2),
+    );
+  }
+  // The heart at the centre, and the stem to the point.
+  const yh = top - height * 0.55;
+  trace((ctx) => {
+    ctx.moveTo(cx, yh - 0.1);
+    ctx.bezierCurveTo(
+      cx - 0.13,
+      yh - 0.02,
+      cx - 0.08,
+      yh + 0.09,
+      cx,
+      yh + 0.03,
+    );
+    ctx.bezierCurveTo(cx + 0.08, yh + 0.09, cx + 0.13, yh - 0.02, cx, yh - 0.1);
+  });
+  trace((ctx) => {
+    ctx.moveTo(cx, yh - 0.1);
+    ctx.lineTo(cx, bottom + 0.02);
+  });
+}
+
+/**
+ * The mizab's embroidery, painted where the shadharwan hides it (see
+ * MIZAB_SWATCH): a band as long and as tall as the channel's side — a gold
+ * ground with fine geometric lattice (where the real one is inscribed),
+ * between light-gold border lines — and a patch of plain gold.
+ */
+function paintMizabSwatch(p: Painter) {
+  const { length, side } = KAABA.mizab;
+  const { band, plain } = MIZAB_SWATCH;
+  const x0 = band.x;
+  const x1 = band.x + length;
+  const y0 = band.y;
+  const y1 = band.y + side;
+  // A little beyond the band, so sampling at its edges stays gold.
+  p.rect(GOLD, x0 - 0.05, y0 - 0.03, x1 + 0.05, y1 + 0.03);
+  brightFill(p, x0 + 0.03, y0 + 0.045, x1 - 0.03, y1 - 0.045);
+  p.rect(GOLD_SOFT, x0, y0 + 0.015, x1, y0 + 0.028);
+  p.rect(GOLD_SOFT, x0, y1 - 0.028, x1, y1 - 0.015);
+  p.rect(GOLD, plain.x - 0.4, plain.y - 0.1, plain.x + 0.4, plain.y + 0.1);
+}
+
+/**
  * Yemeni corner: a gold band down the corner edge itself (photos 38 and 47).
  * It leaves the belt, runs behind the corner shield (painted over it later),
  * down the black kiswa and on over the white cloth and the stones without a
@@ -1082,8 +1243,11 @@ function paintWall(p: Painter, wall: Wall) {
       break;
     case "hijr":
       belowBelt(p, belowBeltRun(hw, L - hw, 2));
+      // The mizab leaves this wall at its middle.
+      mizabCrest(p, L / 2, KAABA.mizab.bottom + KAABA.mizab.side);
       break;
     case "southWest":
+      paintMizabSwatch(p);
       // Yemeni corner at the right end.
       belowBelt(p, belowBeltRun(hw, L - hw, 2));
       paintYemeniBand(p, L);

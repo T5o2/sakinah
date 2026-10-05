@@ -50,6 +50,18 @@ export const KISWA_Y0 = 0;
 export const KISWA_Y1 = KAABA.height;
 
 export const BELT_BOTTOM = KAABA.beltY - KAABA.beltHeight / 2;
+
+/**
+ * Where the mizab's embroidery is painted in the atlas: on the south-west
+ * wall, low down, where the shadharwan covers the wall from 2 cm to 40 cm, so
+ * it never shows there. `band` is the channel's side at full size (its
+ * length × its side height); `plain` a patch of plain gold.
+ */
+export const MIZAB_SWATCH = {
+  wall: "southWest" as WallId,
+  band: { x: 0.7, y: 0.08 },
+  plain: { x: 3.9, y: 0.19 },
+};
 export const BELT_TOP = KAABA.beltY + KAABA.beltHeight / 2;
 export const SITARA_TOP = BELT_BOTTOM - KAABA.belowBeltGap;
 export const SITARA_HEM = KAABA.door.bottom + KAABA.sitara.hemAboveDoor;
@@ -277,6 +289,8 @@ export function createKiswaGeometry(): BufferGeometry {
     ),
   );
 
+  pieces.push(...mizabPieces());
+
   for (const p of pieces) {
     for (const name of Object.keys(p.attributes)) {
       if (!["position", "normal", "uv"].includes(name)) p.deleteAttribute(name);
@@ -286,6 +300,112 @@ export function createKiswaGeometry(): BufferGeometry {
   for (const p of pieces) p.dispose();
   if (!merged) throw new Error("Kiswa geometry could not be merged");
   return merged;
+}
+
+/**
+ * The mizab: a rectangular gold channel leaving the Hijr wall through the
+ * parapet, with a spout plate hanging at its mouth (photo 72). It is part of
+ * the kiswa mesh so it shares the belt's material exactly: every face samples
+ * the inside of the first belt panel on the Hijr wall, at the belt's scale,
+ * so it carries the same gold and the same geometric embroidery (where the
+ * real one is inscribed). Its base ornament is painted on the kiswa itself
+ * (see kiswaAtlas.ts).
+ */
+function mizabPieces(): BufferGeometry[] {
+  const m = KAABA.mizab;
+  const x1 = HALF_X + m.outside;
+  const x0 = x1 - m.length;
+  const y0 = m.bottom;
+  const hw = m.width / 2;
+  const t = 0.03;
+  const box = (
+    ax: number,
+    bx: number,
+    ay: number,
+    by: number,
+    az: number,
+    bz: number,
+  ) => {
+    const g = new BoxGeometry(bx - ax, by - ay, bz - az);
+    g.translate((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+    return g;
+  };
+  const pieces: BufferGeometry[] = [
+    box(x0, x1, y0, y0 + t, -hw, hw),
+    box(x0, x1, y0, y0 + m.side, hw - t, hw),
+    box(x0, x1, y0, y0 + m.side, -hw, -hw + t),
+  ];
+
+  // The spout plate at the mouth: as wide as photo 72 shows, from the top
+  // of the channel down past its floor, ending in a rounded lobe.
+  const { width: sw, length: sl } = m.spout;
+  const sTop = y0 + m.side;
+  const plate = new Shape();
+  plate.moveTo(-sw / 2, sTop);
+  plate.lineTo(sw / 2, sTop);
+  plate.lineTo(sw * 0.42, sTop - sl + sw * 0.45);
+  plate.quadraticCurveTo(sw * 0.42, sTop - sl, 0, sTop - sl);
+  plate.quadraticCurveTo(
+    -sw * 0.42,
+    sTop - sl,
+    -sw * 0.42,
+    sTop - sl + sw * 0.45,
+  );
+  plate.closePath();
+  const spout = new ExtrudeGeometry(plate, {
+    depth: 0.025,
+    bevelEnabled: false,
+  });
+  // Shape (across, up), extruded along +z → across along z, depth along +x.
+  spout.applyMatrix4(
+    new Matrix4().makeBasis(
+      new Vector3(0, 0, -1),
+      new Vector3(0, 1, 0),
+      new Vector3(1, 0, 0),
+    ),
+  );
+  spout.translate(x1, 0, 0);
+  pieces.push(spout);
+
+  // UVs: the outer sides carry the embroidered band at full size; the spout's
+  // faces the same band, squeezed to its height; everything else plain gold.
+  const sw0 = wallById(MIZAB_SWATCH.wall);
+  const { band, plain } = MIZAB_SWATCH;
+  const plainUv = atlasUv(sw0, plain.x, plain.y);
+  return pieces.map((piece) => {
+    const g = piece.index ? piece.toNonIndexed() : piece;
+    if (g !== piece) piece.dispose();
+    const pos = g.getAttribute("position");
+    const nrm = g.getAttribute("normal");
+    const uv = new Float32Array(pos.count * 2);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const nx = Math.abs(nrm.getX(i));
+      const ny = Math.abs(nrm.getY(i));
+      const nz = Math.abs(nrm.getZ(i));
+      let at: [number, number];
+      if (nz >= nx && nz >= ny && y >= y0 - 1e-6) {
+        at = atlasUv(sw0, band.x + (x - x0), band.y + (y - y0));
+      } else if (nx > ny && nx > nz && x > x1 - 1e-6) {
+        // The spout plate's faces: across its width, squeezed to the band.
+        at = atlasUv(
+          sw0,
+          band.x + 0.2 + (z + sw / 2),
+          band.y + ((y - (sTop - sl)) / sl) * m.side,
+        );
+      } else {
+        at = plainUv;
+      }
+      const [u, v] = at;
+      uv[i * 2] = u;
+      uv[i * 2 + 1] = v;
+    }
+    g.setAttribute("uv", new BufferAttribute(uv, 2));
+    g.clearGroups();
+    return g;
+  });
 }
 
 /** Sloped marble shadharwan along one wall segment (wall metres x0..x1). */
@@ -613,20 +733,7 @@ export function kaabaParts(): {
     ),
   );
 
-  // Mizab: gold waterspout over Hijr Ismail, leaving the roof through the parapet.
-  const mizabX = HALF_X + 0.45;
-  const mizabY = roofY + 0.25;
-  metal.push(
-    part(new BoxGeometry(1.9, 0.08, 0.34), PALETTE.gold, {
-      position: [mizabX, mizabY, 0],
-    }),
-    part(new BoxGeometry(1.9, 0.2, 0.05), PALETTE.gold, {
-      position: [mizabX, mizabY + 0.1, 0.15],
-    }),
-    part(new BoxGeometry(1.9, 0.2, 0.05), PALETTE.gold, {
-      position: [mizabX, mizabY + 0.1, -0.15],
-    }),
-  );
+  // The mizab is part of the kiswa mesh (mizabPieces), in the belt's gold.
 
   // Gold rings under the black frame round the stone showing at the Yemeni corner.
   metal.push(

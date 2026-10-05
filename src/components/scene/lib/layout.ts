@@ -201,6 +201,55 @@ export const CLEARANCE = {
   hijrHalfSectorDeg: 50,
 } as const;
 
+/**
+ * Four guards standing still round the Kaaba (photos 77–86): red berets at
+ * the Black Stone and Yemeni corners, black berets at the two Hijr gates.
+ * Feet positions on the floor (x, z); `yawDeg` turns a figure modelled
+ * facing +Z (0 = facing the door wall's outward side, +Z).
+ */
+export const GUARDS = {
+  /** Head top about 1.72 m; the beret adds a few centimetres. */
+  height: 1.75,
+  /**
+   * White marble step behind the marble block, on its door side, against
+   * the wall (photo 79): a separate piece, the block itself untouched. Its
+   * top sits at about half the block's height, where the guard's feet are.
+   */
+  step: {
+    /** Starts where the marble block ends along the door wall. */
+    from: KAABA.marbleBlock.from + KAABA.marbleBlock.width,
+    width: 0.7,
+    depth: 0.55,
+    height: 0.6,
+    cap: 0.04,
+  },
+  /**
+   * Black Stone guard (photos 78, 79, 83): on the step, leaning a little
+   * towards the stone, his right arm out to the side at shoulder height, the
+   * palm flat on the dark wall stones just beside the silver frame's upper
+   * end, above the marble block.
+   */
+  blackStone: {
+    along: KAABA.marbleBlock.from + KAABA.marbleBlock.width + 0.25,
+    out: 0.27,
+    yawDeg: -30,
+    leanDeg: 6,
+    /** Palm on the door wall: metres from the Black Stone corner, height. */
+    hand: { along: 0.49, y: 1.95 },
+  },
+  /**
+   * Yemeni corner (photo 86): on the floor just outside the shadharwan on
+   * the south-east side (towards the Black Stone), a step from the corner,
+   * facing out and a little towards the corner.
+   */
+  yemeni: { along: 0.8, out: KAABA.baseOutset + 0.32, yawDeg: -105 },
+  /**
+   * Hijr gates (photos 81, 84, 85): on the mataf side of each gate, beside
+   * its outer post, in front of the end of the Hijr wall under the lantern.
+   */
+  hijrGate: { x: 8.12, out: 0.85 },
+} as const;
+
 export const MATAF = {
   radius: 64,
   arcadeRadius: 58,

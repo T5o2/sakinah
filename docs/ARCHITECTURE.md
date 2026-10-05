@@ -142,6 +142,7 @@ src/app/[locale]/layout.tsx          ← fonts per locale, dir/lang, NextIntlCli
 │     ├─ HeroPoster                  (صورة ثابتة، LCP، وبديل عدم دعم WebGL)
 │     ├─ HaramScene  [dynamic, ssr:false]
 │     │  └─ <Canvas> SceneLighting · MatafFloor · Kaaba (كسوة + حزام ذهبي)
+│     │              · Guards (4 حراس ثابتون، هندسة مدمجة واحدة)
 │     │              · TawafCrowd (InstancedMesh: إحرام / عباءة / حامل طفل)
 │     │              · PigeonFlock (Instanced) · CameraRig (orbit + pointer + dolly)
 │     ├─ SceneCursorTooltip (desktop) / TapHint (mobile)
@@ -185,6 +186,11 @@ shared/hooks: useDirection
 - **الارتفاع (14 م):** المصادر فيه متعارضة (13.1 و14 و15)، فأُبقي كما اعتُمد.
 - **الستارة:** عرضها 3.47 م من الصورة 51 الأمامية (0.278 من الجدار)، ويتفق مع ويكيبيديا Kiswah (3.5 م). ارتفاعها 6.04 م، من الخط الواحد تحت الحزام إلى 0.3 م فوق أسفل الباب. التفاصيل في `docs/PHASE2-HANDOFF.md`.
 - **مقاسات الزخارف** غير موثقة، فهي مقيسة من صور نسبةً إلى الحزام.
+
+**الحراس (Phase 2، في `src/components/scene/figures/guards.ts`):**
+- أربعة حراس ثابتون بلا ملامح ولا شارات: عند الحجر الأسود (على درجة رخامية مستقلة خلف قطعة الرخام) والركن اليماني، ببريهة حمراء، وعند بوابتي الحِجر ببريهة سوداء. مواضعهم في `GUARDS` داخل `layout.ts`.
+- نموذج واحد تبنيه دالة واحدة، والوقفة معامل فيها (استرح، أو ذراع ممدودة تُحل بعظمتين). الأربعة ثابتون، فيُدمجون في هندسة واحدة بألوان في الرؤوس: draw call واحد. الـ instancing كان يحتاج اثنين على الأقل (وقفتان ولونا بريهة)، ولا فائدة منه لأجسام لا تتحرك.
+- التمويه بثلاث درجات لكل مثلث من موضعه في العالم (value noise)، بلا texture.
 
 ## C. Data Models
 كل النماذج Zod في `src/lib/schemas/`، والأنواع عبر `z.infer`.

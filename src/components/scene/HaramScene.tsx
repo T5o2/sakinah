@@ -6,6 +6,7 @@ import { type PointerEvent, useMemo, useRef, useState } from "react";
 import { CAMERA, TIER_SETTINGS } from "@/lib/config/scene";
 import { Arcade } from "./Arcade";
 import { CameraRig } from "./CameraRig";
+import { Guards } from "./Guards";
 import { HaramLandmarks } from "./HaramLandmarks";
 import { MatafFloor } from "./MatafFloor";
 import { SceneLighting } from "./SceneLighting";
@@ -112,6 +113,7 @@ export default function HaramScene({
         <MatafFloor textureSize={settings.floorTextureSize} />
         <Arcade />
         <HaramLandmarks atlasWidth={settings.kiswaAtlasWidth} />
+        <Guards />
 
         <CameraRig orbit={gesture.state} still={reducedMotion} />
         <FirstFrame onFirstFrame={onFirstFrame} />

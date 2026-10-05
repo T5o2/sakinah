@@ -2,14 +2,25 @@
 
 import { Canvas, invalidate, useFrame } from "@react-three/fiber";
 import { PerformanceMonitor } from "@react-three/drei";
-import { type PointerEvent, useMemo, useRef, useState } from "react";
-import { CAMERA, TIER_SETTINGS } from "@/lib/config/scene";
+import {
+  type PointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  CAMERA,
+  PERFORMANCE_WARMUP_MS,
+  TIER_SETTINGS,
+} from "@/lib/config/scene";
 import { Arcade } from "./Arcade";
 import { CameraRig } from "./CameraRig";
 import { Guards } from "./Guards";
 import { HaramLandmarks } from "./HaramLandmarks";
 import { MatafFloor } from "./MatafFloor";
 import { SceneLighting } from "./SceneLighting";
+import { TawafCrowd } from "./TawafCrowd";
 import {
   detectDeviceTier,
   lowerTier,
@@ -66,6 +77,13 @@ export default function HaramScene({
 
   const gesture = useMemo(() => createOrbitGesture(), []);
 
+  // Judge the frame rate only once loading's one-off stalls are over.
+  const [monitoring, setMonitoring] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setMonitoring(true), PERFORMANCE_WARMUP_MS);
+    return () => clearTimeout(id);
+  }, []);
+
   return (
     // Horizontal drags orbit; vertical touch pans stay with the page (touch-pan-y).
     <div
@@ -103,17 +121,19 @@ export default function HaramScene({
         {/* Near/far are driven by CameraRig from the camera distance. */}
         <fog attach="fog" args={[PALETTE.ink, 70, 150]} />
 
-        <PerformanceMonitor
-          flipflops={3}
-          onDecline={() => setTier(lowerTier)}
-          onFallback={() => setTier("low")}
-        />
+        {/* Steps down only on a sustained low frame rate. No flipflop
+            fallback: drei counts every incline as a flip too, so a fast
+            device rising past its upper bound would "fall back" to low. */}
+        {monitoring && (
+          <PerformanceMonitor onDecline={() => setTier(lowerTier)} />
+        )}
 
         <SceneLighting />
         <MatafFloor textureSize={settings.floorTextureSize} />
         <Arcade />
         <HaramLandmarks atlasWidth={settings.kiswaAtlasWidth} />
         <Guards />
+        <TawafCrowd count={settings.walkers} still={reducedMotion} />
 
         <CameraRig orbit={gesture.state} still={reducedMotion} />
         <FirstFrame onFirstFrame={onFirstFrame} />

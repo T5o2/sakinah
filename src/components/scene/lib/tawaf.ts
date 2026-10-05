@@ -1,5 +1,5 @@
 import { TAWAF, WALKER_MIX } from "@/lib/config/scene";
-import { CLEARANCE } from "./layout";
+import { CLEARANCE, MAQAM } from "./layout";
 
 /**
  * Tawaf kinematics. Pure functions, no three.js, so they can be unit-tested.
@@ -73,16 +73,30 @@ export function createRng(seed: number): () => number {
   };
 }
 
-function pickKind(u: number): WalkerKind {
-  if (u < WALKER_MIX.ihram) return "ihram";
-  if (u < WALKER_MIX.ihram + WALKER_MIX.abaya) return "abaya";
-  return "carrier";
+/**
+ * Exactly the configured share of each kind (rounded), in a shuffled order
+ * so the kinds mix evenly round the mataf.
+ */
+export function walkerKinds(count: number, rng: () => number): WalkerKind[] {
+  const carriers = Math.round(count * WALKER_MIX.carrier);
+  const abayas = Math.round(count * WALKER_MIX.abaya);
+  const kinds: WalkerKind[] = [
+    ...Array<WalkerKind>(count - carriers - abayas).fill("ihram"),
+    ...Array<WalkerKind>(abayas).fill("abaya"),
+    ...Array<WalkerKind>(carriers).fill("carrier"),
+  ];
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [kinds[i], kinds[j]] = [kinds[j]!, kinds[i]!];
+  }
+  return kinds;
 }
 
 export function createWalkers(count: number, seed = 1447): Walker[] {
   const rng = createRng(seed);
   const [minOffset, maxOffset] = TAWAF.offset;
   const [minSpeed, maxSpeed] = TAWAF.speed;
+  const kinds = walkerKinds(count, rng);
   const walkers: Walker[] = [];
 
   for (let i = 0; i < count; i++) {
@@ -92,7 +106,7 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
     // Angular speed from the mean radius of this walker's lane.
     const laneRadius = CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset;
     walkers.push({
-      kind: pickKind(rng()),
+      kind: kinds[i]!,
       theta0: rng() * TAU,
       offset,
       omega: speed / laneRadius,
@@ -108,8 +122,43 @@ export function walkerTheta(walker: Walker, t: number): number {
   return walker.theta0 + walker.omega * t;
 }
 
+/**
+ * How close a walker's centre may come to the Maqam's centre: its granite
+ * footing (1.05 m), a walker's body (0.35 m) and a margin.
+ */
+export const MAQAM_KEEP_OUT = 1.05 + 0.35 + 0.3;
+const MAQAM_R = Math.hypot(MAQAM.x, MAQAM.z);
+const MAQAM_THETA = Math.atan2(-MAQAM.z, MAQAM.x);
+
+/**
+ * Lane radius at θ, stepping smoothly round the Maqam Ibrahim: a walker
+ * whose lane would cross it eases out (or in, whichever side it is nearer)
+ * to clear it, and back. The step reaches the keep-out radius beside the
+ * Maqam and fades over 2.5 × that distance before and after it.
+ */
+export function laneRadius(walker: Walker, theta: number): number {
+  const r = clearanceRadius(theta) + walker.offset;
+  const c = r - MAQAM_R;
+  const along = wrapAngle(theta - MAQAM_THETA) * r;
+  const reach = 2.5 * MAQAM_KEEP_OUT;
+  if (Math.abs(c) >= MAQAM_KEEP_OUT || Math.abs(along) >= reach) return r;
+  const w = Math.cos(((Math.PI / 2) * along) / reach) ** 2;
+  const side = c >= 0 ? 1 : -1;
+  return MAQAM_R + side * (Math.abs(c) + (MAQAM_KEEP_OUT - Math.abs(c)) * w);
+}
+
 /** Floor position of a walker after `t` seconds. */
 export function walkerPosition(walker: Walker, t: number): Point2 {
   const theta = walkerTheta(walker, t);
-  return tawafPosition(clearanceRadius(theta) + walker.offset, theta);
+  return tawafPosition(laneRadius(walker, theta), theta);
+}
+
+/**
+ * Rotation about +Y facing a walker along its actual path at `t` (which
+ * bends round the Hijr and the Maqam), for a figure modelled facing +Z.
+ */
+export function walkerHeading(walker: Walker, t: number): number {
+  const a = walkerPosition(walker, t);
+  const b = walkerPosition(walker, t + 0.25);
+  return Math.atan2(b.x - a.x, b.z - a.z);
 }

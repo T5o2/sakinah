@@ -23,7 +23,7 @@ export interface TierSettings {
 
 export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
   high: {
-    walkers: 900,
+    walkers: 280,
     pigeons: 48,
     dpr: [1, 1.75],
     antialias: true,
@@ -31,7 +31,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     kiswaAtlasWidth: 2048,
   },
   medium: {
-    walkers: 300,
+    walkers: 160,
     pigeons: 28,
     dpr: [1, 1.5],
     antialias: true,
@@ -39,7 +39,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     kiswaAtlasWidth: 1024,
   },
   low: {
-    walkers: 120,
+    walkers: 90,
     pigeons: 16,
     dpr: [1, 1],
     antialias: false,
@@ -50,20 +50,23 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
 
 /** Share of each figure type among the walkers (sums to 1). */
 export const WALKER_MIX = {
-  ihram: 0.55,
-  abaya: 0.4,
+  ihram: 0.6,
+  abaya: 0.35,
   carrier: 0.05,
 } as const;
 
 export const TAWAF = {
   /** Walking speed range, metres per second (scene units are metres). */
-  speed: [0.55, 1.15] as [number, number],
+  speed: [0.7, 1.05] as [number, number],
   /** Distance kept outside the Kaaba/Hijr clearance line, metres. */
   offset: [0.8, 22] as [number, number],
   /** >1 packs walkers closer to the Kaaba, as in the real mataf. */
-  offsetBias: 1.8,
-  /** Motion multiplier under prefers-reduced-motion: an almost still scene. */
-  reducedMotionFactor: 0.04,
+  offsetBias: 2.3,
+  /** Height of each walker: a uniform scale on its figure. */
+  heightScale: [0.93, 1.07] as [number, number],
+  /** Walking bob: steps per metre walked, and how high each step lifts, metres. */
+  stepsPerMetre: 1.4,
+  bob: 0.02,
 };
 
 export const CAMERA = {
@@ -97,6 +100,14 @@ export const ORBIT = {
   idleResumeMs: 4000,
   swayBlendSec: 2.5,
 };
+
+/**
+ * The frame-rate monitor that steps the device tier down only starts this
+ * long after the scene mounts: the first seconds hold one-off shader
+ * compiles and texture uploads, which would otherwise read as a slow device
+ * and drop even a fast desktop to the lowest tier for good.
+ */
+export const PERFORMANCE_WARMUP_MS = 3000;
 
 /** Performance budget for the whole scene (checked by tests and at runtime). */
 export const BUDGET = {

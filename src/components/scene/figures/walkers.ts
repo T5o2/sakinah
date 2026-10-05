@@ -26,10 +26,30 @@ import { createRng, type WalkerKind } from "../lib/tawaf";
 const UP = new Vector3(0, 1, 0);
 const v = (x: number, y: number, z: number) => new Vector3(x, y, z);
 
-/** Colour slot: the part's own colour, or the walker's skin or hair. */
-export const TINT = { own: 0, skin: 1, hair: 2 } as const;
-/** Hair shown always, not when bald, or only with long hair. */
-export const HAIR = { always: 0, notBald: 1, longOnly: 2 } as const;
+/** Colour slot: the part's own colour, or the walker's skin, hair, or carried child's cloth. */
+export const TINT = { own: 0, skin: 1, hair: 2, child: 3 } as const;
+/**
+ * Hair roles, shaped per walker by the shader: the crop over the scalp
+ * (gone when bald, closer or fuller with the style, scaled about the head
+ * centre given as the piece's pivot) and the hair down the back (shown from
+ * medium length, stretched down from its top, the pivot).
+ */
+export const HAIR = { none: 0, crop: 1, back: 2 } as const;
+/**
+ * Carried-child roles: the child's body (scaled per walker about the
+ * piece's `kidPivot`), a girl's head cover (girls only) and a boy's hair
+ * (boys only).
+ */
+export const KID = { none: 0, body: 1, cover: 2, hair: 3 } as const;
+/** Hair styles for men, shortest first. */
+export const HAIR_STYLE = {
+  bald: 0,
+  veryShort: 1,
+  short: 2,
+  medium: 3,
+  long: 4,
+  veryLong: 5,
+} as const;
 
 /** Hip and shoulder heights the legs and arms swing about. */
 export const HIP_Y = 0.88;
@@ -46,6 +66,9 @@ interface Piece {
   pivot?: number;
   /** Hem sway: full at the floor, fading to nothing at this height. */
   hemAbove?: number;
+  /** Carried-child role, and the point the child is scaled about. */
+  kid?: number;
+  kidPivot?: Vector3;
 }
 
 /** A tapered limb between two points (open ends; joints are covered by balls). */
@@ -82,9 +105,12 @@ function build(pieces: Piece[]): BufferGeometry {
     const col = new Float32Array(n * 3);
     const tint = new Float32Array(n * 2);
     const motion = new Float32Array(n * 3);
+    const kid = new Float32Array(n * 4);
+    const kp = p.kidPivot ?? new Vector3();
     for (let i = 0; i < n; i++) {
       col.set([colour.r, colour.g, colour.b], i * 3);
-      tint.set([p.tint ?? TINT.own, p.hair ?? HAIR.always], i * 2);
+      tint.set([p.tint ?? TINT.own, p.hair ?? HAIR.none], i * 2);
+      kid.set([p.kid ?? KID.none, kp.x, kp.y, kp.z], i * 4);
       const hem =
         p.hemAbove === undefined
           ? 0
@@ -94,6 +120,7 @@ function build(pieces: Piece[]): BufferGeometry {
     g.setAttribute("color", new BufferAttribute(col, 3));
     g.setAttribute("aTint", new BufferAttribute(tint, 2));
     g.setAttribute("aMotion", new BufferAttribute(motion, 3));
+    g.setAttribute("aKid", new BufferAttribute(kid, 4));
     return g;
   });
   const merged = mergeGeometries(prepared, false);
@@ -136,9 +163,9 @@ function bareAbove(
 }
 
 /**
- * Head: a plain egg for face and scalp (no features), a short crop over the
- * top and back (gone when bald), and long hair down the back of the neck
- * (only for some).
+ * Head: a plain egg for face and scalp (no features), a crop over the top
+ * and back, and hair down the back of the neck; the shader shapes both to
+ * each man's style, from bald to very long.
  */
 function head(y: number): Piece[] {
   return [
@@ -149,14 +176,16 @@ function head(y: number): Piece[] {
         .rotateX(-0.35)
         .translate(0, y, -0.006),
       tint: TINT.hair,
-      hair: HAIR.notBald,
+      hair: HAIR.crop,
+      pivot: y,
     },
     {
       geometry: new CylinderGeometry(0.075, 0.085, 0.24, 6, 1, true, Math.PI * 0.6, Math.PI * 0.8)
         .scale(1, 1, 0.9)
         .translate(0, y - 0.1, -0.02),
       tint: TINT.hair,
-      hair: HAIR.longOnly,
+      hair: HAIR.back,
+      pivot: y + 0.02,
     },
   ];
 }
@@ -193,7 +222,7 @@ function ihramPieces(armsDown = true): Piece[] {
   // The rida's upper edge: from the left shoulder down to the right armpit.
   const ridaLine = (x: number) => 1.2 + (x + 0.2) * 0.62;
   const torso = bareAbove(
-    new CylinderGeometry(0.19, 0.175, 0.52, 8, 3, true)
+    new CylinderGeometry(0.19, 0.175, 0.52, 7, 3, true)
       .scale(1, 1, 0.66)
       .translate(0, 1.18, 0),
     ridaLine,
@@ -268,14 +297,49 @@ function abayaPieces(): Piece[] {
 }
 
 /**
+ * A carried child's head: a plain egg (no face), a boy's short crop, and a
+ * girl's head cover; scaled with the child about `pivot`.
+ */
+function childHead(at: Vector3, r: number, pivot: Vector3): Piece[] {
+  return [
+    { geometry: ball(at, r, [0.9, 1.08, 1], [6, 4]), tint: TINT.skin, kid: KID.body, kidPivot: pivot },
+    {
+      geometry: new SphereGeometry(r * 1.08, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.55)
+        .scale(0.9, 1.08, 1)
+        .rotateX(-0.35)
+        .translate(at.x, at.y, at.z - 0.005),
+      tint: TINT.hair,
+      kid: KID.hair,
+      kidPivot: pivot,
+    },
+    {
+      // A girl's cover: over the head and down to the shoulders, face open.
+      geometry: new SphereGeometry(r * 1.22, 5, 2, Math.PI * 0.75, Math.PI * 1.5, 0, Math.PI * 0.7)
+        .scale(0.95, 1.15, 1)
+        .translate(at.x, at.y - 0.01, at.z - 0.01),
+      tint: TINT.child,
+      kid: KID.cover,
+      kidPivot: pivot,
+    },
+  ];
+}
+
+/**
  * Man in ihram carrying a child on his shoulders: the child sits behind his
  * head, legs forward over his chest, held at the shins by both his hands.
- * The child shares his skin and hair colours.
+ * Per walker the child is a boy (white) or a girl (white or black, head
+ * covered), and a little younger or older (scaled about the seat).
  */
 function carrierPieces(): Piece[] {
   const white = PALETTE.ihram;
-  const child = PALETTE.childCloth;
   const shins: Vector3[] = [v(-0.12, 1.3, 0.13), v(0.12, 1.3, 0.13)];
+  const seat = v(0, 1.52, -0.06);
+  const k = (geometry: BufferGeometry, tint: number): Piece => ({
+    geometry,
+    tint,
+    kid: KID.body,
+    kidPivot: seat,
+  });
   return [
     ...ihramPieces(false),
     // His arms raised to hold the child's shins.
@@ -284,35 +348,54 @@ function carrierPieces(): Piece[] {
     { geometry: limb(v(0.21, SHOULDER_Y, 0), v(0.25, 1.2, 0.08), 0.065, 0.055), color: white },
     { geometry: limb(v(0.25, 1.2, 0.08), shins[1]!, 0.042, 0.035), tint: TINT.skin },
     // The child: seated on his shoulders, torso upright, hands on his head.
-    { geometry: ball(v(0, 1.56, -0.07), 0.1, [1.2, 0.7, 1]), color: child },
-    { geometry: limb(v(0, 1.56, -0.07), v(0, 1.88, -0.08), 0.095, 0.085), color: child },
-    { geometry: ball(v(0, 1.88, -0.08), 0.085, [1.1, 0.6, 0.9]), color: child },
-    { geometry: limb(v(-0.08, 1.56, -0.03), v(-0.12, 1.53, 0.11), 0.045, 0.04), color: child },
-    { geometry: limb(v(0.08, 1.56, -0.03), v(0.12, 1.53, 0.11), 0.045, 0.04), color: child },
-    { geometry: limb(v(-0.12, 1.53, 0.11), v(-0.13, 1.27, 0.15), 0.04, 0.032), tint: TINT.skin },
-    { geometry: limb(v(0.12, 1.53, 0.11), v(0.13, 1.27, 0.15), 0.04, 0.032), tint: TINT.skin },
-    { geometry: limb(v(-0.1, 1.84, -0.08), v(-0.07, 1.72, 0), 0.032, 0.026), color: child },
-    { geometry: limb(v(0.1, 1.84, -0.08), v(0.07, 1.72, 0), 0.032, 0.026), color: child },
-    { geometry: ball(v(0, 2.0, -0.09), 0.08, [0.9, 1.08, 1], [6, 4]), tint: TINT.skin },
+    k(ball(v(0, 1.56, -0.07), 0.1, [1.2, 0.7, 1]), TINT.child),
+    k(limb(v(0, 1.56, -0.07), v(0, 1.88, -0.08), 0.095, 0.085), TINT.child),
+    k(ball(v(0, 1.88, -0.08), 0.085, [1.1, 0.6, 0.9]), TINT.child),
+    k(limb(v(-0.08, 1.56, -0.03), v(-0.12, 1.53, 0.11), 0.045, 0.04), TINT.child),
+    k(limb(v(0.08, 1.56, -0.03), v(0.12, 1.53, 0.11), 0.045, 0.04), TINT.child),
+    k(limb(v(-0.12, 1.53, 0.11), v(-0.13, 1.27, 0.15), 0.04, 0.032), TINT.skin),
+    k(limb(v(0.12, 1.53, 0.11), v(0.13, 1.27, 0.15), 0.04, 0.032), TINT.skin),
+    k(limb(v(-0.1, 1.84, -0.08), v(-0.07, 1.72, 0), 0.032, 0.026), TINT.child),
+    k(limb(v(0.1, 1.84, -0.08), v(0.07, 1.72, 0), 0.032, 0.026), TINT.child),
+    ...childHead(v(0, 2.0, -0.09), 0.08, seat),
+  ];
+}
+
+/**
+ * Woman in a black abaya carrying a small child in her arms in front of her
+ * chest: her forearms cross under the child, who lies across them, head to
+ * her right. The child varies as on the carriers' shoulders.
+ */
+function motherPieces(): Piece[] {
+  const black = PALETTE.abaya;
+  const centre = v(0.02, 1.12, 0.21);
+  return [
+    ...abayaPieces().filter((p) => p.swing === undefined),
+    // Arms bent, forearms across the front, holding the child.
+    { geometry: limb(v(-0.19, 1.32, 0), v(-0.21, 1.06, 0.1), 0.055, 0.05), color: black },
+    { geometry: limb(v(-0.21, 1.06, 0.1), v(0.1, 1.06, 0.24), 0.05, 0.045), color: black },
+    { geometry: limb(v(0.19, 1.32, 0), v(0.2, 1.1, 0.1), 0.055, 0.05), color: black },
+    { geometry: limb(v(0.2, 1.1, 0.1), v(-0.12, 1.13, 0.26), 0.05, 0.045), color: black },
+    // The child, wrapped, lying across her arms.
     {
-      geometry: new SphereGeometry(0.086, 6, 2, 0, Math.PI * 2, 0, Math.PI * 0.55)
-        .scale(0.9, 1.08, 1)
-        .rotateX(-0.35)
-        .translate(0, 2.0, -0.095),
-      tint: TINT.hair,
+      geometry: ball(centre, 0.1, [1.7, 0.85, 0.85], [6, 3]),
+      tint: TINT.child,
+      kid: KID.body,
+      kidPivot: centre,
     },
+    ...childHead(v(-0.17, 1.17, 0.21), 0.062, centre),
   ];
 }
 
 /** One merged geometry per kind of walker, with colour and walker data per vertex. */
 export function createWalkerGeometry(kind: WalkerKind): BufferGeometry {
-  return build(
-    kind === "ihram"
-      ? ihramPieces()
-      : kind === "abaya"
-        ? abayaPieces()
-        : carrierPieces(),
-  );
+  const pieces = {
+    ihram: ihramPieces,
+    abaya: abayaPieces,
+    carrier: carrierPieces,
+    mother: motherPieces,
+  }[kind];
+  return build(pieces());
 }
 
 /** Skin tones, dark to light, about equally common (sRGB). */
@@ -334,12 +417,18 @@ const HAIR_COLOURS: [string, number][] = [
   ["#8f8d88", 0.14],
   ["#c8c6c0", 0.06],
 ];
-/** Hair styles with their shares: bald (few), short, long. */
+/** Men's hair styles with their shares: bald and very long fewest. */
 const HAIR_STYLES: [number, number][] = [
-  [0, 0.08],
-  [1, 0.7],
-  [2, 0.22],
+  [HAIR_STYLE.bald, 0.06],
+  [HAIR_STYLE.veryShort, 0.17],
+  [HAIR_STYLE.short, 0.27],
+  [HAIR_STYLE.medium, 0.22],
+  [HAIR_STYLE.long, 0.19],
+  [HAIR_STYLE.veryLong, 0.09],
 ];
+/** A carried child's cloth: white for boys; white or black for girls. */
+const CHILD_WHITE = PALETTE.childWhite;
+const CHILD_BLACK = PALETTE.childBlack;
 
 function pick<T>(choices: [T, number][], u: number): T {
   let acc = 0;
@@ -354,8 +443,10 @@ export interface WalkerLook {
   /** sRGB colours. */
   skin: string;
   hair: string;
-  /** 0 bald, 1 short, 2 long. */
+  /** Hair style, see HAIR_STYLE. */
   style: number;
+  /** For a carried child: girl or boy, cloth colour (sRGB), size scale. */
+  child: { girl: boolean; cloth: string; scale: number };
 }
 
 /** Skin, hair colour and hair style for walker `index` (deterministic). */
@@ -365,5 +456,13 @@ export function walkerLook(index: number): WalkerLook {
     skin: SKIN_TONES[Math.floor(rng() * SKIN_TONES.length)]!,
     hair: pick(HAIR_COLOURS, rng()),
     style: pick(HAIR_STYLES, rng()),
+    child: (() => {
+      const girl = rng() < 0.5;
+      return {
+        girl,
+        cloth: girl && rng() < 0.5 ? CHILD_BLACK : CHILD_WHITE,
+        scale: 0.85 + 0.3 * rng(),
+      };
+    })(),
   };
 }

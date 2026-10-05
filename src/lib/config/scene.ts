@@ -51,8 +51,10 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
 /** Share of each figure type among the walkers (sums to 1). */
 export const WALKER_MIX = {
   ihram: 0.6,
-  abaya: 0.35,
+  abaya: 0.32,
   carrier: 0.05,
+  /** A woman in abaya carrying a small child in her arms. */
+  mother: 0.03,
 } as const;
 
 export const TAWAF = {
@@ -68,8 +70,8 @@ export const TAWAF = {
    * Most fall near the middle of each range (see createWalkers).
    */
   body: {
-    menHeight: [1.55, 1.9] as [number, number],
-    womenHeight: [1.5, 1.75] as [number, number],
+    menHeight: [1.58, 1.92] as [number, number],
+    womenHeight: [1.48, 1.72] as [number, number],
     breadth: [0.85, 1.2] as [number, number],
     modelHeight: { man: 1.7, woman: 1.62 },
   },

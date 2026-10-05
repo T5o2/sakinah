@@ -23,7 +23,7 @@ import {
   walkerStep,
 } from "./lib/tawaf";
 
-const KINDS: WalkerKind[] = ["ihram", "abaya", "carrier"];
+const KINDS: WalkerKind[] = ["ihram", "abaya", "carrier", "mother"];
 /** Frames to wait before showing the crowd: the contact shadows are drawn once, without it. */
 const HIDDEN_FRAMES = 2;
 
@@ -79,12 +79,19 @@ export function TawafCrowd({ count, still }: { count: number; still: boolean }) 
       const skin = new Float32Array(n * 3);
       const hair = new Float32Array(n * 3);
       const look = new Float32Array(n * 2);
+      const childCloth = new Float32Array(n * 3);
+      const childLook = new Float32Array(n * 2);
       members.forEach(({ index }, i) => {
         const l = walkerLook(index);
         colour.set(l.skin).toArray(skin, i * 3);
         colour.set(l.hair).toArray(hair, i * 3);
         look[i * 2] = l.style;
+        colour.set(l.child.cloth).toArray(childCloth, i * 3);
+        childLook[i * 2] = l.child.scale;
+        childLook[i * 2 + 1] = l.child.girl ? 1 : 0;
       });
+      geometry.setAttribute("aChild", new InstancedBufferAttribute(childCloth, 3));
+      geometry.setAttribute("aChildLook", new InstancedBufferAttribute(childLook, 2));
       geometry.setAttribute("aSkin", new InstancedBufferAttribute(skin, 3));
       geometry.setAttribute("aHair", new InstancedBufferAttribute(hair, 3));
       const lookAttr = new InstancedBufferAttribute(look, 2);

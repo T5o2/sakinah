@@ -45,7 +45,7 @@ export function clearanceRadius(theta: number): number {
   return CLEARANCE.base + CLEARANCE.hijrBulge * bulge;
 }
 
-export type WalkerKind = "ihram" | "abaya" | "carrier";
+export type WalkerKind = "ihram" | "abaya" | "carrier" | "mother";
 
 export interface Walker {
   kind: WalkerKind;
@@ -91,10 +91,12 @@ export function createRng(seed: number): () => number {
 export function walkerKinds(count: number, rng: () => number): WalkerKind[] {
   const carriers = Math.round(count * WALKER_MIX.carrier);
   const abayas = Math.round(count * WALKER_MIX.abaya);
+  const mothers = Math.round(count * WALKER_MIX.mother);
   const kinds: WalkerKind[] = [
-    ...Array<WalkerKind>(count - carriers - abayas).fill("ihram"),
+    ...Array<WalkerKind>(count - carriers - abayas - mothers).fill("ihram"),
     ...Array<WalkerKind>(abayas).fill("abaya"),
     ...Array<WalkerKind>(carriers).fill("carrier"),
+    ...Array<WalkerKind>(mothers).fill("mother"),
   ];
   for (let i = kinds.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -166,7 +168,12 @@ export function formGroups(
   kinds: WalkerKind[],
   rng: () => number,
 ): { kind: GroupKind; ids: number[] }[] {
-  const pools: Record<WalkerKind, number[]> = { ihram: [], abaya: [], carrier: [] };
+  const pools: Record<WalkerKind, number[]> = {
+    ihram: [],
+    abaya: [],
+    carrier: [],
+    mother: [],
+  };
   kinds.forEach((k, i) => pools[k].push(i));
   const take = (k: WalkerKind) => pools[k].pop();
   const target = Math.round(kinds.length * TAWAF.groups.share);
@@ -177,14 +184,15 @@ export function formGroups(
     const u = rng();
     const ids: (number | undefined)[] = [];
     let kind: GroupKind;
-    if (u < 0.35) {
+    // Couples most often (about 40% of groups), then families, then friends.
+    if (u < 0.5) {
       kind = "couple";
       ids.push(take("ihram"), take("abaya"));
-    } else if (u < 0.7) {
+    } else if (u < 0.78) {
       kind = "family";
       const size = 3 + Math.floor(rng() * 3);
       ids.push(take(rng() < 0.4 && pools.carrier.length ? "carrier" : "ihram"));
-      ids.push(take("abaya"));
+      ids.push(take(rng() < 0.35 && pools.mother.length ? "mother" : "abaya"));
       for (let k = 2; k < size; k++) ids.push(take(rng() < 0.5 ? "abaya" : "ihram"));
     } else {
       kind = "friends";
@@ -224,8 +232,9 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   // Mean of three uniforms: anywhere in the range, most near its middle.
   const middling = () => (rng() + rng() + rng()) / 3;
   const span = ([lo, hi]: [number, number], u: number) => lo + (hi - lo) * u;
+  const isWoman = (kind: WalkerKind) => kind === "abaya" || kind === "mother";
   const bodies = kinds.map((kind) => {
-    const woman = kind === "abaya";
+    const woman = isWoman(kind);
     const metres = span(woman ? body.womenHeight : body.menHeight, middling());
     return {
       height: metres / (woman ? body.modelHeight.woman : body.modelHeight.man),
@@ -239,6 +248,22 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
 
   // Units: each group, laid out in a loose cluster, and each walker alone.
   const groups = formGroups(kinds, rng);
+  // In couples and families the men are mostly taller than the women: a
+  // woman as tall as the tallest man with her is redrawn a little shorter.
+  for (const { ids } of groups) {
+    const metres = (i: number) =>
+      bodies[i]!.height *
+      (isWoman(kinds[i]!) ? body.modelHeight.woman : body.modelHeight.man);
+    const men = ids.filter((i) => !isWoman(kinds[i]!));
+    if (men.length === 0) continue;
+    const tallest = Math.max(...men.map(metres));
+    for (const i of ids) {
+      if (!isWoman(kinds[i]!) || metres(i) < tallest - 0.03 || rng() < 0.1) continue;
+      const [lo, hi] = body.womenHeight;
+      const top = Math.max(lo, Math.min(hi, tallest - 0.04));
+      bodies[i]!.height = (lo + (top - lo) * middling()) / body.modelHeight.woman;
+    }
+  }
   const units: Unit[] = groups.map(({ ids }, g) => {
     // Fill the two lanes of a corridor from the front, each member going
     // a little behind the last one in its lane: side by side or staggered.

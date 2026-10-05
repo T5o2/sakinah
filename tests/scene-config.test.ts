@@ -12,7 +12,8 @@ import {
 
 describe("scene config", () => {
   it("walker mix sums to 1", () => {
-    const total = WALKER_MIX.ihram + WALKER_MIX.abaya + WALKER_MIX.carrier;
+    const total =
+      WALKER_MIX.ihram + WALKER_MIX.abaya + WALKER_MIX.carrier + WALKER_MIX.mother;
     expect(total).toBeCloseTo(1, 10);
   });
 

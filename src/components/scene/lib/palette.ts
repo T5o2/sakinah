@@ -38,10 +38,11 @@ export const PALETTE = {
   beretBlack: "#141519",
   /** The black cloth strap the Black Stone guard holds. */
   guardStrap: "#111113",
-  /** Pilgrims: white ihram, black abaya, and a plain neutral grey-beige for a child, set apart from the ihram. */
+  /** Pilgrims: white ihram, black abaya; a carried child in white or black. */
   ihram: "#ece9e1",
   abaya: "#121214",
-  childCloth: "#b9b2a4",
+  childWhite: "#e2ded4",
+  childBlack: "#18181b",
   lampWarm: "#ffd9a0",
   keyLight: "#ffe8c8",
   arcadeGlow: "#1b140c",

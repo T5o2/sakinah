@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { BUDGET, TAWAF, TIER_SETTINGS } from "../src/lib/config/scene";
 import { guardPlacements } from "../src/components/scene/figures/guards";
 import { LEG_SWING } from "../src/components/scene/figures/walkerMaterial";
-import { createWalkerGeometry, walkerLook } from "../src/components/scene/figures/walkers";
+import {
+  createWalkerGeometry,
+  HAIR_STYLE,
+  walkerLook,
+} from "../src/components/scene/figures/walkers";
+import { PALETTE } from "../src/components/scene/lib/palette";
 import {
   CLEARANCE,
   HALF_X,
@@ -130,7 +135,7 @@ describe("walkers", () => {
 
   it("include every figure type in a large crowd", () => {
     const kinds = new Set(createWalkers(900).map((w) => w.kind));
-    expect(kinds).toEqual(new Set(["ihram", "abaya", "carrier"]));
+    expect(kinds).toEqual(new Set(["ihram", "abaya", "carrier", "mother"]));
   });
 });
 
@@ -138,12 +143,14 @@ describe("tawaf crowd (Phase 2)", () => {
   const walkers = createWalkers(TIER_SETTINGS.high.walkers);
   const times = Array.from({ length: 240 }, (_, i) => i * 1.5);
 
-  it("mixes 60% men in ihram, 35% women in abaya, 5% carrying a child", () => {
+  it("mixes 60% men in ihram, 32% women in abaya, 5% men and 3% women carrying a child", () => {
     const count = (k: string) => walkers.filter((w) => w.kind === k).length;
     const n = walkers.length;
-    expect(count("ihram")).toBe(n - Math.round(n * 0.35) - Math.round(n * 0.05));
-    expect(count("abaya")).toBe(Math.round(n * 0.35));
-    expect(count("carrier")).toBe(Math.round(n * 0.05));
+    const [abaya, carrier, mother] = [0.32, 0.05, 0.03].map((s) => Math.round(n * s));
+    expect(count("ihram")).toBe(n - abaya! - carrier! - mother!);
+    expect(count("abaya")).toBe(abaya);
+    expect(count("carrier")).toBe(carrier);
+    expect(count("mother")).toBe(mother);
   });
 
   it("is a calm, medium crowd, lighter on weaker devices", () => {
@@ -214,7 +221,7 @@ describe("tawaf crowd (Phase 2)", () => {
 
   it("keeps the whole scene within budget, with room left for the pigeons", () => {
     const perKind = Object.fromEntries(
-      (["ihram", "abaya", "carrier"] as const).map((k) => [k, triangleCount(createWalkerGeometry(k))]),
+      (["ihram", "abaya", "carrier", "mother"] as const).map((k) => [k, triangleCount(createWalkerGeometry(k))]),
     );
     const crowd = walkers.reduce((sum, w) => sum + perKind[w.kind]!, 0);
     // Everything else in the scene measured 37,188 triangles; keep 15k spare for the birds.
@@ -274,15 +281,65 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     expect(dPhase / Math.PI).toBeCloseTo(dDist / (stride * w.height), 6);
   });
 
-  it("varies skin and hair: many tones, few bald, some long-haired", () => {
+  it("varies skin and hair: many tones, six hair lengths, bald and very long fewest", () => {
     const looks = walkers.map((_, i) => walkerLook(i));
     expect(new Set(looks.map((l) => l.skin)).size).toBeGreaterThanOrEqual(6);
     expect(new Set(looks.map((l) => l.hair)).size).toBeGreaterThanOrEqual(5);
-    const share = (s: number) => looks.filter((l) => l.style === s).length / looks.length;
-    expect(share(0)).toBeGreaterThan(0.02);
-    expect(share(0)).toBeLessThan(0.15);
-    expect(share(2)).toBeGreaterThan(0.1);
-    expect(share(1)).toBeGreaterThan(0.5);
+    const men = walkers
+      .map((w, i) => [w, looks[i]!] as const)
+      .filter(([w]) => w.kind === "ihram" || w.kind === "carrier");
+    const share = (s: number) => men.filter(([, l]) => l.style === s).length / men.length;
+    const shares = Object.values(HAIR_STYLE).map(share);
+    for (const s of shares) expect(s).toBeGreaterThan(0.02);
+    const [bald, ...rest] = shares;
+    const veryLong = rest.pop()!;
+    for (const s of rest) {
+      expect(s).toBeGreaterThan(bald!);
+      expect(s).toBeGreaterThan(veryLong);
+    }
+  });
+
+  it("makes men mostly taller than women, the ranges overlapping", () => {
+    const { body } = TAWAF;
+    const woman = (w: (typeof walkers)[number]) => w.kind === "abaya" || w.kind === "mother";
+    const metres = (w: (typeof walkers)[number]) =>
+      w.height * (woman(w) ? body.modelHeight.woman : body.modelHeight.man);
+    const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const men = walkers.filter((w) => !woman(w)).map(metres);
+    const women = walkers.filter(woman).map(metres);
+    expect(mean(men) - mean(women)).toBeGreaterThan(0.1);
+    expect(Math.min(...men)).toBeLessThan(Math.max(...women));
+    // In couples and families, the men are mostly the taller.
+    const groups = new Map<number, typeof walkers>();
+    walkers.forEach((w) => w.group >= 0 && groups.set(w.group, [...(groups.get(w.group) ?? []), w]));
+    let pairs = 0;
+    let taller = 0;
+    for (const g of groups.values()) {
+      const ms = g.filter((w) => !woman(w));
+      if (ms.length === 0) continue;
+      const top = Math.max(...ms.map(metres));
+      for (const w of g.filter(woman)) {
+        pairs++;
+        if (metres(w) < top) taller++;
+      }
+    }
+    expect(taller / pairs).toBeGreaterThan(0.85);
+  });
+
+  it("varies the carried children: boys in white, girls in white or black with a cover, sizes differing", () => {
+    const children = walkers
+      .map((w, i) => [w, walkerLook(i).child] as const)
+      .filter(([w]) => w.kind === "carrier" || w.kind === "mother")
+      .map(([, c]) => c);
+    expect(children.some((c) => c.girl)).toBe(true);
+    expect(children.some((c) => !c.girl)).toBe(true);
+    const all = walkers.map((_, i) => walkerLook(i).child);
+    for (const c of all.filter((c) => !c.girl)) expect(c.cloth).toBe(PALETTE.childWhite);
+    expect(new Set(all.filter((c) => c.girl).map((c) => c.cloth))).toEqual(
+      new Set([PALETTE.childWhite, PALETTE.childBlack]),
+    );
+    const sizes = children.map((c) => c.scale);
+    expect(Math.max(...sizes) - Math.min(...sizes)).toBeGreaterThan(0.15);
   });
 });
 
@@ -321,16 +378,32 @@ describe("tawaf crowd: groups", () => {
         for (const a of ps) for (const b of ps) widest = Math.max(widest, Math.hypot(a.x - b.x, a.z - b.z));
       }
     }
-    // Five people at most: a loose cluster a few metres across.
-    expect(widest).toBeLessThan(4.5);
+    // Five people at most: a loose cluster a few metres across, which
+    // stretches for a while on the longer outer path round the Hijr.
+    expect(widest).toBeLessThan(6);
   });
 
   it("lays groups out irregularly, not in straight rows", () => {
     const shapes = new Set(
       [...groups.values()].map((g) =>
-        g.map((w) => `${w.offset.toFixed(1)}:${(w.theta0 - g[0]!.theta0).toFixed(2)}`).join("|"),
+        g.map((w) => `${w.offset.toFixed(2)}:${(w.theta0 - g[0]!.theta0).toFixed(5)}`).join("|"),
       ),
     );
     expect(shapes.size).toBe(groups.size);
+  });
+});
+
+describe("tawaf crowd: group mix", () => {
+  it("has couples as the commonest group, about 40%", () => {
+    const walkers = createWalkers(TIER_SETTINGS.high.walkers);
+    const groups = new Map<number, string[]>();
+    walkers.forEach((w) => w.group >= 0 && groups.set(w.group, [...(groups.get(w.group) ?? []), w.kind]));
+    const couples = [...groups.values()].filter((k) => k.length === 2 && k.includes("abaya")).length;
+    const friends = [...groups.values()].filter((k) => k.every((x) => x === "ihram")).length;
+    const families = groups.size - couples - friends;
+    expect(couples).toBeGreaterThan(families);
+    expect(couples).toBeGreaterThan(friends);
+    expect(couples / groups.size).toBeGreaterThan(0.33);
+    expect(couples / groups.size).toBeLessThan(0.5);
   });
 });

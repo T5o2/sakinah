@@ -202,8 +202,9 @@ export const CLEARANCE = {
 } as const;
 
 /**
- * Four guards standing still round the Kaaba (photos 77–86): red berets at
- * the Black Stone and Yemeni corners, black berets at the two Hijr gates.
+ * Four guards standing still round the Kaaba (photos 77–87): a red beret
+ * at the Black Stone, black berets at the Yemeni corner and the two Hijr
+ * gates.
  * Feet positions on the floor (x, z); `yawDeg` turns a figure modelled
  * facing +Z (0 = facing the door wall's outward side, +Z).
  */

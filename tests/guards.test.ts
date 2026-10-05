@@ -47,10 +47,10 @@ function touches(geometry: BufferGeometry, box: Box3): boolean {
 }
 
 describe("guards", () => {
-  it("are four: red berets at the Black Stone and Yemeni corners, black at the Hijr gates", () => {
+  it("are four: a red beret at the Black Stone, black at the Yemeni corner and the Hijr gates", () => {
     expect(placements.map((g) => [g.id, g.beret])).toEqual([
       ["blackStone", "red"],
-      ["yemeni", "red"],
+      ["yemeni", "black"],
       ["hijrGateIraqi", "black"],
       ["hijrGateShami", "black"],
     ]);

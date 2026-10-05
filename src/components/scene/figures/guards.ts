@@ -347,7 +347,7 @@ export function guardPlacements(): GuardPlacement[] {
     },
     {
       id: "yemeni",
-      beret: "red",
+      beret: "black",
       position: new Vector3(-HALF_X - ye.out, 0, -HALF_Z + ye.along),
       yawDeg: ye.yawDeg,
       pose: AT_EASE,

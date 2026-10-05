@@ -481,9 +481,17 @@ function tieRings(wall: Wall, x0: number, x1: number, step = 1.4): Part[] {
  * stone shows through the opening, just behind the frame's face.
  */
 function blackStone(): { frame: Part; stone: Part } {
-  const { halfWidth: w, proud, edgeThickness } = KAABA.blackStoneFrame;
-  // Fillet radius so the frame's half-width spans a quarter turn either side.
-  const R = w / (Math.PI / 4);
+  const {
+    halfWidth: w,
+    halfHeight: hh,
+    opening,
+    stone: stoneR,
+    proud,
+    edgeThickness,
+  } = KAABA.blackStoneFrame;
+  // Fillet radius so the frame's face, `edgeThickness` out at its edges,
+  // spans a quarter turn either side and meets both walls.
+  const R = w / (Math.PI / 4) - edgeThickness;
   // Fillet axis: R from both walls, inside the corner along the diagonal.
   const out = new Vector3(-1, 0, 1).normalize();
   const axis = new Vector3(-HALF_X, 0, HALF_Z).addScaledVector(
@@ -493,13 +501,16 @@ function blackStone(): { frame: Part; stone: Part } {
   // Thickness at the centre: from the fillet out past the edge by `proud`.
   const centre = R * Math.SQRT2 - R + proud;
 
+  // An upright almond: pointed above and below, its sides swelling out, with
+  // the round opening at its centre (photo 74).
   const outline = new Shape();
-  outline.moveTo(0, -0.52);
-  outline.quadraticCurveTo(w, -0.3, w, 0.02);
-  outline.absarc(0, 0.02, w, 0, Math.PI, false);
-  outline.quadraticCurveTo(-w, -0.3, 0, -0.52);
+  outline.moveTo(0, -hh);
+  outline.bezierCurveTo(w * 0.3, -hh * 0.8, w, -hh * 0.55, w, 0);
+  outline.bezierCurveTo(w, hh * 0.55, w * 0.3, hh * 0.8, 0, hh);
+  outline.bezierCurveTo(-w * 0.3, hh * 0.8, -w, hh * 0.55, -w, 0);
+  outline.bezierCurveTo(-w, -hh * 0.55, -w * 0.3, -hh * 0.8, 0, -hh);
   const hole = new Path();
-  hole.absarc(0, 0.04, 0.15, 0, Math.PI * 2, true);
+  hole.absarc(0, 0, opening, 0, Math.PI * 2, true);
   outline.holes.push(hole);
   const frame = new ExtrudeGeometry(outline, {
     // Built at its true centre thickness, so splitting adds few side faces.
@@ -507,8 +518,7 @@ function blackStone(): { frame: Part; stone: Part } {
     bevelEnabled: false,
     curveSegments: 20,
   });
-  const stone = new CircleGeometry(0.17, 24);
-  stone.translate(0, 0.04, 0);
+  const stone = new CircleGeometry(stoneR, 24);
 
   /**
    * Bends a piece built flat (x across, y up, z out; 0..centre for the frame)
@@ -526,10 +536,16 @@ function blackStone(): { frame: Part; stone: Part } {
     const pos = g.getAttribute("position");
     const nrm = g.getAttribute("normal");
     for (let i = 0; i < pos.count; i++) {
-      const th = pos.getX(i) / R;
+      // Bend each point by the radius of the surface it lies on, so lengths
+      // across the face are kept: the opening stays round instead of being
+      // stretched by the face standing proud of the fillet.
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      let th = x / R;
+      for (let k = 0; k < 4; k++) th = x / (R + zScale(th, z));
       const c = Math.cos(th);
       const sn = Math.sin(th);
-      const r = R + zScale(th, pos.getZ(i));
+      const r = R + zScale(th, z);
       pos.setXYZ(i, r * sn, pos.getY(i), r * c);
       // Bending is a rotation by th about y at each point: turn the normal with it.
       const nx = nrm.getX(i);
@@ -554,7 +570,7 @@ function blackStone(): { frame: Part; stone: Part } {
   return {
     frame: {
       geometry: wrap(frame, (th, z) => (z / centre) * taper(th)),
-      color: PALETTE.silver,
+      color: PALETTE.blackStoneFrame,
     },
     // Sunk a little behind the frame's face, in front of the corner edge.
     stone: {

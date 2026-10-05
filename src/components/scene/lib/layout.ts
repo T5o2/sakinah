@@ -113,8 +113,14 @@ export const KAABA = {
     crest: { width: 0.23 * 4.4, height: 0.23 * 3.04 },
     spout: { width: 0.23 * 0.87, length: 0.23 * 2.74 },
   },
-  /** Black Stone: centre of the silver frame (documented 1.1–1.5 m). */
-  blackStoneHeight: 1.4,
+  /**
+   * Black Stone: centre of the stone and of the frame's opening. Written
+   * sources give 1.5 m, some 1.10 m; photo 75, measured against the marble
+   * block and the shadharwan beside it, wins (see blackStoneFrame): the
+   * frame's foot 0.30 m above the shadharwan's top, the block's top at 0.57
+   * of the frame's height — centre at 1.185 m.
+   */
+  blackStoneHeight: 1.185,
   /**
    * The rounded mass of dark stone the frame is set into, bulging out of the
    * east corner (radius, how far its axis sits inside the corner, height span).
@@ -124,7 +130,23 @@ export const KAABA = {
    * rounded fillet tangent to both walls, and it stands a little proud of
    * the edge, facing out along the corner's diagonal.
    */
-  blackStoneFrame: { halfWidth: 0.38, proud: 0.1, edgeThickness: 0.08 },
+  blackStoneFrame: {
+    /**
+     * Shape from photo 74 (0.70 × 0.83 m against the 0.27 m opening), size
+     * from photo 75: the frame is 1.13 × the marble block's height above the
+     * shadharwan rings, i.e. 0.97 m tall. Frame, opening and stone are
+     * scaled together by 0.97 / 0.83, so the opening reads 0.32 m — more
+     * than the 0.27 m written figure; photo 75 was followed.
+     */
+    halfWidth: 0.35 * (0.97 / 0.83),
+    halfHeight: 0.97 / 2,
+    /** Radius of the opening the stone shows through. */
+    opening: 0.135 * (0.97 / 0.83),
+    /** Radius of the stone itself. */
+    stone: 0.15 * (0.97 / 0.83),
+    proud: 0.1,
+    edgeThickness: 0.08,
+  },
   /**
    * Upright white marble block beside the Black Stone: it rises out of the
    * shadharwan, one piece with it, and is as deep as the shadharwan's foot.

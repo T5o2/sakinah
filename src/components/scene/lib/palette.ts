@@ -17,7 +17,10 @@ export const PALETTE = {
   roof: "#c8cbcf",
   roofBox: "#e4e6e8",
   granite: "#1d1c1c",
-  blackStone: "#1b1716",
+  /** Black with a red cast. */
+  blackStone: "#2a1614",
+  /** The Black Stone's polished silver frame, brighter than plain silver. */
+  blackStoneFrame: "#e6e5e1",
   bronze: "#5b4a2c",
   lanternGlass: "#0f3d27",
   lanternGlow: "#2f8a57",

@@ -80,16 +80,17 @@ export function HaramLandmarks({ atlasWidth }: { atlasWidth: number }) {
         />
       </mesh>
 
-      {/* Polished silver: the Black Stone's frame and the roof's rope rod. */}
+      {/* Polished silver: the Black Stone's frame. */}
       <mesh geometry={geometries.silver}>
-        {/* Part-diffuse so the silver reads even where it faces the dark sky. */}
+        {/* Mirror-polished, so it catches the lights from across the mataf;
+            a faint glow keeps it reading where it faces the dark sky. */}
         <meshStandardMaterial
           vertexColors
-          metalness={0.55}
-          roughness={0.28}
-          envMapIntensity={3}
-          emissive="#8a8a8e"
-          emissiveIntensity={0.18}
+          metalness={0.8}
+          roughness={0.16}
+          envMapIntensity={4}
+          emissive="#c4c4c8"
+          emissiveIntensity={0.24}
         />
       </mesh>
 

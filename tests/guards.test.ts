@@ -29,14 +29,13 @@ const byId = (id: string) => {
   return g;
 };
 const bodyOf = (id: string) => {
-  const { camo, solid, palms, rightArm, spine } = placedGuardParts(byId(id));
+  const { camo, solid, palms, rightArm } = placedGuardParts(byId(id));
   const geometry = mergeParts([...camo, ...solid]);
   return {
     geometry,
     box: new Box3().setFromBufferAttribute(geometry.getAttribute("position") as never),
     palms,
     rightArm,
-    spine,
   };
 };
 
@@ -136,47 +135,28 @@ describe("Black Stone guard", () => {
     }
   });
 
-  it("leans from the ankles: ankles, hips and head on one straight line", () => {
-    const [ankles, hips, head] = bodyOf("blackStone").spine;
-    const tilt = (p: Vector3) =>
-      (Math.acos((p.y - ankles!.y) / p.distanceTo(ankles!)) * 180) / Math.PI;
-    const lean = GUARDS.blackStone.leanDeg;
-    // A slight lean.
-    expect(lean).toBeGreaterThanOrEqual(8);
-    expect(lean).toBeLessThanOrEqual(15);
-    expect(tilt(hips!)).toBeCloseTo(lean, 6);
-    expect(tilt(head!)).toBeCloseTo(lean, 6);
-    // Mostly along the wall towards the strap (−X), a little back onto the wall.
-    const dx = ankles!.x - head!.x;
-    const dz = ankles!.z - head!.z;
-    expect(dx).toBeGreaterThan(0);
-    expect(dz).toBeGreaterThan(0);
-    expect(dz).toBeLessThan(dx * 0.3);
+  it("keeps the approved pose of commit e0ef7d6", () => {
+    const bs = GUARDS.blackStone;
+    expect([bs.along, bs.out, bs.yawDeg, bs.leanDeg]).toEqual([1.25, 0.27, -30, 6]);
+    expect(byId("blackStone").pose.stanceHalf).toBe(0.13);
   });
 
-  it("stands close against the wall: his back touches it without going in", () => {
+  it("keeps clear of the wall", () => {
     const pos = bodyOf("blackStone").geometry.getAttribute("position");
     let nearest = Infinity;
-    let at = 0;
-    for (let i = 0; i < pos.count; i++) {
-      if (pos.getZ(i) - HALF_Z < nearest) {
-        nearest = pos.getZ(i) - HALF_Z;
-        at = pos.getY(i) - st.height;
-      }
-    }
-    expect(nearest).toBeGreaterThan(0.002);
-    expect(nearest).toBeLessThan(0.012);
-    // The nearest point is his upper body (back or shoulder), not a heel or hand.
-    expect(at).toBeGreaterThan(1.0);
-    expect(at).toBeLessThan(1.5);
+    for (let i = 0; i < pos.count; i++) nearest = Math.min(nearest, pos.getZ(i) - HALF_Z);
+    expect(nearest).toBeGreaterThan(0.005);
   });
 
-  it("holds the strap's end at his hip with his right hand, the left at his side", () => {
+  it("holds the strap's end at his hip with his right hand, the left behind his back", () => {
     const [right, left] = bodyOf("blackStone").palms;
     expect(right!.distanceTo(strapGripPoint())).toBeLessThan(1e-3);
     // Hip level: about 0.92 m above his feet.
     expect(Math.abs(right!.y - st.height - 0.92)).toBeLessThan(0.08);
-    expect(left!.y - st.height).toBeLessThan(0.9);
+    // Behind his back (towards the wall), at the small of it.
+    const g = byId("blackStone");
+    expect(left!.z).toBeLessThan(g.position.z);
+    expect(Math.abs(left!.y - st.height - 0.985)).toBeLessThan(0.05);
   });
 });
 

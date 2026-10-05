@@ -225,24 +225,18 @@ export const GUARDS = {
     cap: 0.04,
   },
   /**
-   * Black Stone guard (photos 78, 79, 83, 89, 91, 93, 94): on the step,
-   * close against the wall, leaning a little from the ankles towards the
-   * folded black cloth strap that hangs from a ring on the wall. His right
-   * hand holds the strap's bottom end from the front; the left hangs at his
-   * side.
+   * Black Stone guard: approved pose (from commit e0ef7d6, photos 78, 79,
+   * 83; approved again with photo 95). On the step, feet 0.27 m from the
+   * wall, turned 30° towards the stone, the upper body leaning 6° to his
+   * right about the hips, legs straight, left hand behind his back. Only his
+   * right arm changed since: it holds the strap's bottom end from the front
+   * (photos 91, 94). Not to be changed without an explicit request.
    */
   blackStone: {
     along: KAABA.marbleBlock.from + KAABA.marbleBlock.width + 0.25,
-    /** Feet this far out from the wall: close enough that his back and side touch it. */
-    out: 0.22,
+    out: 0.27,
     yawDeg: -30,
-    leanDeg: 10,
-    /**
-     * Lean direction in the world: mostly along the wall towards the strap
-     * (−X), a little back towards the wall (−Z), so his shoulder and back
-     * rest on it while his heels stay clear.
-     */
-    leanToward: [-1, 0, -0.2] as [number, number, number],
+    leanDeg: 6,
     /** Where his right elbow points, in the world: out from the wall and down. */
     elbowPole: [0, -1, 1] as [number, number, number],
   },

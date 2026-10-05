@@ -66,7 +66,11 @@ export interface Walker {
   height: number;
   /** Scale on the figure's width and depth: slim < 1 < broad. */
   breadth: number;
+  /** Index of the group this walker walks with, or −1 alone. */
+  group: number;
 }
+
+export type GroupKind = "couple" | "family" | "friends";
 
 /** Small deterministic PRNG (mulberry32) so the scene — and its poster — is reproducible. */
 export function createRng(seed: number): () => number {
@@ -128,11 +132,86 @@ export function laneOffsets(): number[] {
 const laneInnerRadius = (offset: number) => CLEARANCE.base + offset;
 
 /**
- * The crowd walks in rings ("lanes"), denser near the Kaaba. Everyone in a
- * lane keeps the lane's pace, so neighbours in a lane never close up; lanes
- * are far enough apart that people in neighbouring lanes pass side by side.
- * Spacing within a lane is irregular, with a minimum gap, and each walker
- * drifts a little forward and back along it, so no one marches in step.
+ * Lanes paired into corridors two lanes wide, walked at one angular speed,
+ * so a group can walk side by side across a corridor and stay together. The
+ * pairing puts the Maqam's centre between two corridors, never inside one:
+ * the lanes either side of it, squeezed apart round it, are in different
+ * corridors, so no group is split by it. (Lane indices, inner lane first.)
+ */
+export function corridors(): number[][] {
+  const lanes = laneOffsets();
+  const inner = lanes.filter((l) => l < MAQAM_OFFSET).length;
+  const out: number[][] = [];
+  // Lanes inside the Maqam, paired from it inwards (an odd one left alone).
+  for (let k = inner - 1; k >= 0; k -= 2) {
+    out.unshift(k > 0 ? [k - 1, k] : [k]);
+  }
+  for (let k = inner; k < lanes.length; k += 2) {
+    out.push(k + 1 < lanes.length ? [k, k + 1] : [k]);
+  }
+  return out;
+}
+
+interface Unit {
+  /** Walker indices, and where each walks: lane in the corridor (0 inner, 1 outer) and metres along from the unit's start. */
+  members: { id: number; lane: number; along: number }[];
+  group: number;
+}
+
+/**
+ * Picks walkers for groups out of the kinds already drawn (so the mix is
+ * unchanged), until about `TAWAF.groups.share` of the crowd walks in one.
+ */
+export function formGroups(
+  kinds: WalkerKind[],
+  rng: () => number,
+): { kind: GroupKind; ids: number[] }[] {
+  const pools: Record<WalkerKind, number[]> = { ihram: [], abaya: [], carrier: [] };
+  kinds.forEach((k, i) => pools[k].push(i));
+  const take = (k: WalkerKind) => pools[k].pop();
+  const target = Math.round(kinds.length * TAWAF.groups.share);
+  const groups: { kind: GroupKind; ids: number[] }[] = [];
+  let grouped = 0;
+  let misses = 0;
+  while (grouped < target && misses < 20) {
+    const u = rng();
+    const ids: (number | undefined)[] = [];
+    let kind: GroupKind;
+    if (u < 0.35) {
+      kind = "couple";
+      ids.push(take("ihram"), take("abaya"));
+    } else if (u < 0.7) {
+      kind = "family";
+      const size = 3 + Math.floor(rng() * 3);
+      ids.push(take(rng() < 0.4 && pools.carrier.length ? "carrier" : "ihram"));
+      ids.push(take("abaya"));
+      for (let k = 2; k < size; k++) ids.push(take(rng() < 0.5 ? "abaya" : "ihram"));
+    } else {
+      kind = "friends";
+      const size = 2 + Math.floor(rng() * 3);
+      for (let k = 0; k < size; k++) ids.push(take("ihram"));
+    }
+    if (ids.some((id) => id === undefined)) {
+      // Not enough of a kind left: put back what was taken and try another.
+      for (const id of ids) if (id !== undefined) pools[kinds[id]!].push(id);
+      misses++;
+      continue;
+    }
+    groups.push({ kind, ids: ids as number[] });
+    grouped += ids.length;
+  }
+  return groups;
+}
+
+/**
+ * The crowd walks in rings ("lanes"), denser near the Kaaba, paired into
+ * corridors (see `corridors`). Everyone in a corridor keeps its angular
+ * pace, so no one closes up on anyone; lanes are far enough apart that
+ * people in neighbouring lanes pass side by side. About a third of the
+ * crowd walks in groups — couples, small families, friends — side by side
+ * or a little behind one another, in loose irregular clusters that never
+ * break up. Spacing is irregular, with a minimum gap that follows each
+ * walker's breadth, and walkers alone drift a little forward and back.
  */
 export function createWalkers(count: number, seed = 1447): Walker[] {
   const rng = createRng(seed);
@@ -140,6 +219,7 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   const [minSpeed, maxSpeed] = TAWAF.speed;
   const kinds = walkerKinds(count, rng);
   const lanes = laneOffsets();
+  const bands = corridors();
   const { body } = TAWAF;
   // Mean of three uniforms: anywhere in the range, most near its middle.
   const middling = () => (rng() + rng() + rng()) / 3;
@@ -152,66 +232,135 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
       breadth: span(body.breadth, middling()),
     };
   });
-  /** Room a walker takes along a lane: its share of the gap to each neighbour. */
+  /** Room a walker takes along a lane from strangers: its body, and the surge. */
   const need = (i: number) => TAWAF.minGap * bodies[i]!.breadth + 2 * TAWAF.surge;
+  /** Room within its own group, which surges as one. */
+  const core = (i: number) => TAWAF.minGap * bodies[i]!.breadth;
 
-  // Each walker's preferred lane, biased towards the Kaaba…
-  const wanted = kinds.map(() => {
+  // Units: each group, laid out in a loose cluster, and each walker alone.
+  const groups = formGroups(kinds, rng);
+  const units: Unit[] = groups.map(({ ids }, g) => {
+    // Fill the two lanes of a corridor from the front, each member going
+    // a little behind the last one in its lane: side by side or staggered.
+    const next = [0, rng() * 0.35];
+    const members = ids.map((id) => {
+      const lane = next[0]! <= next[1]! ? (rng() < 0.8 ? 0 : 1) : rng() < 0.8 ? 1 : 0;
+      const along = next[lane]! + core(id) / 2 + rng() * 0.2;
+      next[lane] = along + core(id) / 2;
+      return { id, lane, along };
+    });
+    return { members, group: g };
+  });
+  const inGroup = new Set(groups.flatMap((g) => g.ids));
+  kinds.forEach((_, id) => {
+    if (!inGroup.has(id)) units.push({ members: [{ id, lane: rng() < 0.5 ? 0 : 1, along: 0 }], group: -1 });
+  });
+
+  // Each unit's preferred corridor, biased towards the Kaaba. Stratified
+  // (one draw from each equal slice of the distribution, in shuffled order),
+  // so a few families landing together cannot upset the gradient.
+  const bandOf = lanes.map(() => 0);
+  bands.forEach((b, k) => b.forEach((l) => (bandOf[l] = k)));
+  const slices = units.map((_, j) => j);
+  for (let i = slices.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [slices[i], slices[j]] = [slices[j]!, slices[i]!];
+  }
+  const wanted = units.map((_, u) => {
+    const q = (slices[u]! + rng()) / units.length;
     const offset =
-      minOffset + (maxOffset - minOffset) * rng() ** TAWAF.offsetBias;
+      minOffset + (maxOffset - minOffset) * q ** TAWAF.offsetBias;
     let best = 0;
     lanes.forEach((l, i) => {
       if (Math.abs(l - offset) < Math.abs(lanes[best]! - offset)) best = i;
     });
-    return best;
+    return bandOf[best]!;
   });
-  // …within each lane's room (half its length kept free, so gaps stay
-  // irregular); a full lane passes walkers outwards.
-  const members: number[][] = lanes.map(() => []);
-  const used = lanes.map(() => 0);
-  const fits = (k: number, i: number) =>
-    used[k]! + need(i) <= Math.PI * laneInnerRadius(lanes[k]!);
-  wanted
-    .map((lane, i) => [lane, i] as const)
-    .sort((a, b) => a[0] - b[0])
-    .forEach(([lane, i]) => {
-      let l = lane;
-      while (l < lanes.length - 1 && !fits(l, i)) l++;
-      members[l]!.push(i);
-      used[l]! += need(i);
-    });
 
+  // Pack units into corridors in order, keeping a cursor (angle) per lane:
+  // a unit starts where every lane it uses is free. Half of each corridor is
+  // kept free, so gaps stay irregular; a full corridor passes units outwards.
+  const order = units.map((_, u) => u);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [order[i], order[j]] = [order[j]!, order[i]!];
+  }
+  const placed = bands.map(() => [] as { unit: number; angles: number[] }[]);
+  const cursors = bands.map((b) => b.map(() => 0));
+  const radius = (band: number, lane: number) => {
+    const b = bands[band]!;
+    return laneInnerRadius(lanes[b[Math.min(lane, b.length - 1)]!]!);
+  };
+  const tryPlace = (band: number, u: number) => {
+    const unit = units[u]!;
+    const width = bands[band]!.length;
+    const lane = (m: Unit["members"][number]) => Math.min(m.lane, width - 1);
+    // One-lane corridor: the whole group goes one behind another.
+    const along = (m: Unit["members"][number], k: number) =>
+      width === 1
+        ? unit.members.slice(0, k).reduce((a, n) => a + core(n.id), 0)
+        : m.along;
+    let start = 0;
+    unit.members.forEach((m, k) => {
+      const R = radius(band, lane(m));
+      start = Math.max(
+        start,
+        cursors[band]![lane(m)]! + need(m.id) / 2 / R - along(m, k) / R,
+      );
+    });
+    const angles = unit.members.map((m, k) => start + along(m, k) / radius(band, lane(m)));
+    const ends = cursors[band]!.slice();
+    unit.members.forEach((m, k) => {
+      ends[lane(m)] = Math.max(ends[lane(m)]!, angles[k]! + need(m.id) / 2 / radius(band, lane(m)));
+    });
+    if (Math.max(...ends) > Math.PI) return false;
+    cursors[band] = ends;
+    placed[band]!.push({ unit: u, angles });
+    return true;
+  };
+  order.forEach((u) => {
+    let band = wanted[u]!;
+    while (!tryPlace(band, u)) {
+      if (band === bands.length - 1) throw new Error("Mataf too full for the crowd");
+      band++;
+    }
+  });
+
+  // Spread the spare length of each corridor between units at random, turn
+  // it to a random start, and give each corridor its pace.
   const walkers = new Array<Walker>(count);
-  members.forEach((ids, l) => {
-    if (ids.length === 0) return;
-    const offset = lanes[l]!;
-    const speed = minSpeed + (maxSpeed - minSpeed) * rng();
-    // Angular speed from the mean radius of the lane, Hijr bulge included.
+  placed.forEach((list, band) => {
+    if (list.length === 0) return;
+    const b = bands[band]!;
+    const meanOffset = b.reduce((a, l) => a + lanes[l]!, 0) / b.length;
     const omega =
-      speed / (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset);
-    // Irregular gaps round the lane, never under the minimum for the two
-    // bodies either side of it.
-    const R = laneInnerRadius(offset);
-    const gapMin = ids.map(
-      (id, j) => (need(id) + need(ids[(j + 1) % ids.length]!)) / 2 / R,
-    );
-    const weights = ids.map(() => -Math.log(1 - rng() * 0.999));
-    const spare = TAU - gapMin.reduce((a, b) => a + b, 0);
-    const total = weights.reduce((a, b) => a + b, 0);
-    let theta = rng() * TAU;
-    ids.forEach((id, j) => {
-      walkers[id] = {
-        kind: kinds[id]!,
-        theta0: theta,
-        offset,
-        speed,
-        omega,
-        phase: rng() * TAU,
-        surgeRate: 0.25 + 0.2 * rng(),
-        surgePhase: rng() * TAU,
-        ...bodies[id]!,
-      };
-      theta += gapMin[j]! + (spare * weights[j]!) / total;
+      (minSpeed + (maxSpeed - minSpeed) * rng()) /
+      (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + meanOffset);
+    const spare = TAU - Math.max(...cursors[band]!);
+    const weights = list.map(() => -Math.log(1 - rng() * 0.999));
+    const total = weights.reduce((a, c) => a + c, 0);
+    let shift = rng() * TAU;
+    list.forEach(({ unit: u, angles }, j) => {
+      shift += (spare * weights[j]!) / total;
+      const unit = units[u]!;
+      const surgeRate = 0.25 + 0.2 * rng();
+      const surgePhase = rng() * TAU;
+      unit.members.forEach((m, k) => {
+        const offset = lanes[b[Math.min(m.lane, b.length - 1)]!]!;
+        walkers[m.id] = {
+          kind: kinds[m.id]!,
+          theta0: angles[k]! + shift,
+          offset,
+          speed: omega * (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset),
+          omega,
+          phase: rng() * TAU,
+          // A group surges as one, so it never spreads out.
+          surgeRate,
+          surgePhase,
+          ...bodies[m.id]!,
+          group: unit.group,
+        };
+      });
     });
   });
   return walkers;

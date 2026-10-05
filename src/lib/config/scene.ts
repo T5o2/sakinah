@@ -89,6 +89,8 @@ export const TAWAF = {
   minGap: 0.75,
   /** Each walker drifts this far forward and back along the lane, metres. */
   surge: 0.12,
+  /** Share of the crowd walking in groups (couples, families, friends). */
+  groups: { share: 0.38 },
   /** Lanes within this distance of the Maqam squeeze aside round it, metres. */
   maqamSqueeze: 7,
 };

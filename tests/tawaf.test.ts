@@ -285,3 +285,52 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     expect(share(1)).toBeGreaterThan(0.5);
   });
 });
+
+describe("tawaf crowd: groups", () => {
+  const walkers = createWalkers(TIER_SETTINGS.high.walkers);
+  const groups = new Map<number, typeof walkers>();
+  walkers.forEach((w) => {
+    if (w.group < 0) return;
+    groups.set(w.group, [...(groups.get(w.group) ?? []), w]);
+  });
+
+  it("puts about 35–40% of the crowd in groups of 2–5", () => {
+    const share = walkers.filter((w) => w.group >= 0).length / walkers.length;
+    expect(share).toBeGreaterThanOrEqual(0.35);
+    expect(share).toBeLessThanOrEqual(0.41);
+    for (const g of groups.values()) {
+      expect(g.length).toBeGreaterThanOrEqual(2);
+      expect(g.length).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it("forms couples, families and friends from the kinds already in the crowd", () => {
+    const kinds = [...groups.values()].map((g) => g.map((w) => w.kind).sort().join("+"));
+    expect(kinds).toContain("abaya+ihram");
+    expect(kinds.some((k) => k.split("+").length >= 3 && k.includes("abaya"))).toBe(true);
+    expect(kinds.some((k) => /^ihram(\+ihram)+$/.test(k))).toBe(true);
+    expect(kinds.some((k) => k.includes("carrier") && k.includes("abaya"))).toBe(true);
+  });
+
+  it("keeps each group together, at one pace, round the whole mataf", () => {
+    let widest = 0;
+    for (const g of groups.values()) {
+      expect(new Set(g.map((w) => w.omega)).size).toBe(1);
+      for (let k = 0; k < 60; k++) {
+        const ps = g.map((w) => walkerPosition(w, k * 3.1));
+        for (const a of ps) for (const b of ps) widest = Math.max(widest, Math.hypot(a.x - b.x, a.z - b.z));
+      }
+    }
+    // Five people at most: a loose cluster a few metres across.
+    expect(widest).toBeLessThan(4.5);
+  });
+
+  it("lays groups out irregularly, not in straight rows", () => {
+    const shapes = new Set(
+      [...groups.values()].map((g) =>
+        g.map((w) => `${w.offset.toFixed(1)}:${(w.theta0 - g[0]!.theta0).toFixed(2)}`).join("|"),
+      ),
+    );
+    expect(shapes.size).toBe(groups.size);
+  });
+});

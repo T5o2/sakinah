@@ -23,7 +23,7 @@ export interface TierSettings {
 
 export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
   high: {
-    walkers: 280,
+    walkers: 400,
     pigeons: 48,
     dpr: [1, 1.75],
     antialias: true,
@@ -31,7 +31,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     kiswaAtlasWidth: 2048,
   },
   medium: {
-    walkers: 160,
+    walkers: 220,
     pigeons: 28,
     dpr: [1, 1.5],
     antialias: true,
@@ -39,7 +39,7 @@ export const TIER_SETTINGS: Record<DeviceTier, TierSettings> = {
     kiswaAtlasWidth: 1024,
   },
   low: {
-    walkers: 90,
+    walkers: 120,
     pigeons: 16,
     dpr: [1, 1],
     antialias: false,
@@ -62,8 +62,17 @@ export const TAWAF = {
   offset: [0.8, 22] as [number, number],
   /** >1 packs walkers closer to the Kaaba, as in the real mataf. */
   offsetBias: 2.3,
-  /** Height of each walker: a uniform scale on its figure. */
-  heightScale: [0.93, 1.07] as [number, number],
+  /**
+   * Bodies, per walker: height in metres (the figures are modelled at
+   * `modelHeight`) and breadth as a scale on the figure's width and depth.
+   * Most fall near the middle of each range (see createWalkers).
+   */
+  body: {
+    menHeight: [1.55, 1.9] as [number, number],
+    womenHeight: [1.5, 1.75] as [number, number],
+    breadth: [0.85, 1.2] as [number, number],
+    modelHeight: { man: 1.7, woman: 1.62 },
+  },
   /**
    * Steps per metre walked: one step moves a foot from behind to in front,
    * 2 × leg length (0.85 m) × sin(leg swing), so planted feet do not slide.
@@ -73,7 +82,10 @@ export const TAWAF = {
   bob: 0.015,
   /** Rings the crowd walks in, this far apart (people pass side by side). */
   laneSpacing: 0.9,
-  /** Least gap between two walkers in a lane, centre to centre, metres. */
+  /**
+   * Least gap between two walkers in a lane, centre to centre, for two of
+   * average breadth, metres; it grows and shrinks with their breadths.
+   */
   minGap: 0.75,
   /** Each walker drifts this far forward and back along the lane, metres. */
   surge: 0.12,

@@ -51,12 +51,11 @@ function writeWalker(mesh: InstancedMesh, group: Group, i: number, t: number) {
   const w = group.walkers[i]!;
   const p = walkerPosition(w, t);
   const step = walkerStep(w, t);
-  const [h0, h1] = TAWAF.heightScale;
-  position.set(p.x, TAWAF.bob * Math.abs(Math.cos(step)), p.z);
+  position.set(p.x, TAWAF.bob * w.height * Math.abs(Math.cos(step)), p.z);
   rotation.setFromAxisAngle(yAxis, walkerHeading(w, t));
   roll.setFromAxisAngle(zAxis, 0.02 * Math.sin(step));
   rotation.multiply(roll);
-  scale.setScalar(h0 + (h1 - h0) * w.variation);
+  scale.set(w.breadth, w.height, w.breadth);
   mesh.setMatrixAt(i, matrix.compose(position, rotation, scale));
   group.look.setY(i, step);
 }

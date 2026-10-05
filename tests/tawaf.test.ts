@@ -20,6 +20,7 @@ import {
   walkerDistance,
   walkerHeading,
   walkerPosition,
+  walkerRadius,
   walkerStep,
 } from "../src/components/scene/lib/tawaf";
 
@@ -146,8 +147,9 @@ describe("tawaf crowd (Phase 2)", () => {
   });
 
   it("is a calm, medium crowd, lighter on weaker devices", () => {
-    expect(TIER_SETTINGS.high.walkers).toBeGreaterThanOrEqual(200);
-    expect(TIER_SETTINGS.high.walkers).toBeLessThanOrEqual(300);
+    expect(TIER_SETTINGS.high.walkers).toBeGreaterThanOrEqual(380);
+    expect(TIER_SETTINGS.high.walkers).toBeLessThanOrEqual(420);
+    expect(TIER_SETTINGS.medium.walkers).toBeLessThan(TIER_SETTINGS.high.walkers);
     expect(TIER_SETTINGS.low.walkers).toBeLessThan(TIER_SETTINGS.high.walkers / 2);
   });
 
@@ -223,17 +225,42 @@ describe("tawaf crowd (Phase 2)", () => {
 describe("tawaf crowd: spacing, walking, variety", () => {
   const walkers = createWalkers(TIER_SETTINGS.high.walkers);
 
-  it("never lets two walkers overlap: at least 0.6 m between centres", () => {
+  it("never lets two walkers overlap, whatever their breadth", () => {
     let nearest = Infinity;
+    let clearance = Infinity;
+    const r = walkers.map(walkerRadius);
     for (let k = 0; k < 120; k++) {
       const ps = walkers.map((w) => walkerPosition(w, k * 2.7));
       for (let i = 0; i < ps.length; i++) {
         for (let j = i + 1; j < ps.length; j++) {
-          nearest = Math.min(nearest, Math.hypot(ps[i]!.x - ps[j]!.x, ps[i]!.z - ps[j]!.z));
+          const d = Math.hypot(ps[i]!.x - ps[j]!.x, ps[i]!.z - ps[j]!.z);
+          nearest = Math.min(nearest, d);
+          clearance = Math.min(clearance, d - r[i]! - r[j]!);
         }
       }
     }
-    expect(nearest).toBeGreaterThan(0.6);
+    expect(nearest).toBeGreaterThan(0.5);
+    // Bodies (shoulder and hem width) never touch.
+    expect(clearance).toBeGreaterThan(0);
+  });
+
+  it("varies bodies: heights and breadths across the range, most in the middle", () => {
+    const { body } = TAWAF;
+    const men = walkers.filter((w) => w.kind !== "abaya").map((w) => w.height * body.modelHeight.man);
+    const women = walkers.filter((w) => w.kind === "abaya").map((w) => w.height * body.modelHeight.woman);
+    const breadth = walkers.map((w) => w.breadth);
+    const within = (xs: number[], [lo, hi]: [number, number]) => {
+      expect(Math.min(...xs)).toBeGreaterThanOrEqual(lo);
+      expect(Math.max(...xs)).toBeLessThanOrEqual(hi);
+      // Spread out (well over a third of the range) …
+      expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan((hi - lo) * 0.6);
+      // … with most in the middle half.
+      const mid = xs.filter((x) => Math.abs(x - (lo + hi) / 2) < (hi - lo) / 4).length;
+      expect(mid / xs.length).toBeGreaterThan(0.6);
+    };
+    within(men, body.menHeight);
+    within(women, body.womenHeight);
+    within(breadth, body.breadth);
   });
 
   it("takes one step per half-turn of the step phase, matched to the distance walked", () => {
@@ -243,7 +270,8 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     const w = walkers[0]!;
     const dPhase = walkerStep(w, 10) - walkerStep(w, 0);
     const dDist = walkerDistance(w, 10) - walkerDistance(w, 0);
-    expect(dPhase / Math.PI).toBeCloseTo(dDist / stride, 6);
+    // Taller walkers have longer legs, so longer strides.
+    expect(dPhase / Math.PI).toBeCloseTo(dDist / (stride * w.height), 6);
   });
 
   it("varies skin and hair: many tones, few bald, some long-haired", () => {

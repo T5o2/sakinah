@@ -219,7 +219,7 @@ function ihramPieces(armsDown = true): Piece[] {
     // Izar, flaring a little to the hem just above the ankles.
     {
       // Full and nearly round, so the legs swing inside it.
-      geometry: new CylinderGeometry(0.185, 0.26, 0.86, 9, 2, true)
+      geometry: new CylinderGeometry(0.185, 0.26, 0.86, 9, 1, true)
         .scale(1, 1, 0.95)
         .translate(0, 0.57, 0),
       color: white,
@@ -249,7 +249,7 @@ function abayaPieces(): Piece[] {
   const black = PALETTE.abaya;
   return [
     {
-      geometry: new CylinderGeometry(0.165, 0.26, 1.36, 9, 3, true)
+      geometry: new CylinderGeometry(0.165, 0.26, 1.36, 9, 2, true)
         .scale(1, 1, 0.75)
         .translate(0, 0.68, 0),
       color: black,

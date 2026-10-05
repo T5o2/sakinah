@@ -62,8 +62,10 @@ export interface Walker {
   /** Gentle surge back and forth along the lane: rate (rad/s) and phase. */
   surgeRate: number;
   surgePhase: number;
-  /** Uniform 0–1 value for per-figure variation (height). */
-  variation: number;
+  /** Scale on the figure's height (1 = as modelled). */
+  height: number;
+  /** Scale on the figure's width and depth: slim < 1 < broad. */
+  breadth: number;
 }
 
 /** Small deterministic PRNG (mulberry32) so the scene — and its poster — is reproducible. */
@@ -138,7 +140,20 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   const [minSpeed, maxSpeed] = TAWAF.speed;
   const kinds = walkerKinds(count, rng);
   const lanes = laneOffsets();
-  const minGap = TAWAF.minGap + 2 * TAWAF.surge;
+  const { body } = TAWAF;
+  // Mean of three uniforms: anywhere in the range, most near its middle.
+  const middling = () => (rng() + rng() + rng()) / 3;
+  const span = ([lo, hi]: [number, number], u: number) => lo + (hi - lo) * u;
+  const bodies = kinds.map((kind) => {
+    const woman = kind === "abaya";
+    const metres = span(woman ? body.womenHeight : body.menHeight, middling());
+    return {
+      height: metres / (woman ? body.modelHeight.woman : body.modelHeight.man),
+      breadth: span(body.breadth, middling()),
+    };
+  });
+  /** Room a walker takes along a lane: its share of the gap to each neighbour. */
+  const need = (i: number) => TAWAF.minGap * bodies[i]!.breadth + 2 * TAWAF.surge;
 
   // Each walker's preferred lane, biased towards the Kaaba…
   const wanted = kinds.map(() => {
@@ -152,16 +167,18 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   });
   // …within each lane's room (half its length kept free, so gaps stay
   // irregular); a full lane passes walkers outwards.
-  const room = (k: number) =>
-    Math.floor((Math.PI * laneInnerRadius(lanes[k]!)) / minGap);
   const members: number[][] = lanes.map(() => []);
+  const used = lanes.map(() => 0);
+  const fits = (k: number, i: number) =>
+    used[k]! + need(i) <= Math.PI * laneInnerRadius(lanes[k]!);
   wanted
     .map((lane, i) => [lane, i] as const)
     .sort((a, b) => a[0] - b[0])
     .forEach(([lane, i]) => {
       let l = lane;
-      while (l < lanes.length - 1 && members[l]!.length >= room(l)) l++;
+      while (l < lanes.length - 1 && !fits(l, i)) l++;
       members[l]!.push(i);
+      used[l]! += need(i);
     });
 
   const walkers = new Array<Walker>(count);
@@ -172,10 +189,14 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
     // Angular speed from the mean radius of the lane, Hijr bulge included.
     const omega =
       speed / (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset);
-    // Irregular gaps round the lane, never under the minimum.
-    const gapMin = minGap / laneInnerRadius(offset);
+    // Irregular gaps round the lane, never under the minimum for the two
+    // bodies either side of it.
+    const R = laneInnerRadius(offset);
+    const gapMin = ids.map(
+      (id, j) => (need(id) + need(ids[(j + 1) % ids.length]!)) / 2 / R,
+    );
     const weights = ids.map(() => -Math.log(1 - rng() * 0.999));
-    const spare = TAU - gapMin * ids.length;
+    const spare = TAU - gapMin.reduce((a, b) => a + b, 0);
     const total = weights.reduce((a, b) => a + b, 0);
     let theta = rng() * TAU;
     ids.forEach((id, j) => {
@@ -188,9 +209,9 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
         phase: rng() * TAU,
         surgeRate: 0.25 + 0.2 * rng(),
         surgePhase: rng() * TAU,
-        variation: rng(),
+        ...bodies[id]!,
       };
-      theta += gapMin + (spare * weights[j]!) / total;
+      theta += gapMin[j]! + (spare * weights[j]!) / total;
     });
   });
   return walkers;
@@ -244,12 +265,19 @@ export function walkerPosition(walker: Walker, t: number): Point2 {
 
 /**
  * Walking step phase at `t`: one half-turn per step, so the feet keep pace
- * with the distance actually walked and do not slide.
+ * with the distance actually walked and do not slide. Taller walkers take
+ * longer strides, so fewer steps.
  */
 export function walkerStep(walker: Walker, t: number): number {
   return (
-    walker.phase + Math.PI * TAWAF.stepsPerMetre * walkerDistance(walker, t)
+    walker.phase +
+    (Math.PI * TAWAF.stepsPerMetre * walkerDistance(walker, t)) / walker.height
   );
+}
+
+/** Half a walker's width at the shoulders and robe hem, metres (for spacing checks). */
+export function walkerRadius(walker: Walker): number {
+  return 0.27 * walker.breadth;
 }
 
 /**

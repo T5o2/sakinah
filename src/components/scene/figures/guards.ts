@@ -367,20 +367,28 @@ export function strapRingCentre(): Vector3 {
 const STRAND_HALF = 0.028;
 export const STRAP_RADIUS = 0.026;
 
+/** Centre of the strap's cloth where it hangs flat on the wall. */
+const STRAP_WALL_Z = HALF_Z + STRAP_RADIUS + 0.01;
+/** Half the palm's thickness: it closes a few millimetres into the cloth it grips. */
+const PALM_HALF = 0.036;
+
 /**
- * Middle of the Black Stone guard's palm, in world metres: slipped in behind
- * the strap's bottom loop, between the cloth and the wall (photo 93).
+ * Middle of the Black Stone guard's palm, in world metres: closed on the
+ * strap's bottom end from the front, an ordinary grip (photo 91).
  */
 export function strapGripPoint(): Vector3 {
   const { along, handY } = GUARDS.strap;
-  return new Vector3(-HALF_X + along, handY, HALF_Z + 0.05);
+  return new Vector3(
+    -HALF_X + along,
+    handY,
+    STRAP_WALL_Z + STRAP_RADIUS + PALM_HALF - 0.008,
+  );
 }
 
 /**
- * Centre line of the folded strap (photos 89, 91, 93): one closed loop over
- * the bottom of the ring, its two strands hanging side by side against the
- * wall, then standing out from it over the guard's forearm and hand, which
- * are slipped in behind them, and folding back under his palm.
+ * Centre line of the folded strap (photos 89, 91, 94): one closed loop over
+ * the bottom of the ring, its two strands hanging side by side flat on the
+ * wall down to the fold at its bottom end, where the guard holds it.
  */
 export function strapCurve(): CatmullRomCurve3 {
   const { bottomY, ringRadius } = GUARDS.strap;
@@ -388,24 +396,20 @@ export function strapCurve(): CatmullRomCurve3 {
   const x = ring.x;
   // Centre of the cloth where it lies over the ring's bottom bar.
   const top = ring.y - ringRadius + 0.009 + STRAP_RADIUS;
-  const wallZ = HALF_Z + STRAP_RADIUS + 0.01;
-  const hand = strapGripPoint();
-  const front = HALF_Z + GUARDS.strap.front;
+  const z = STRAP_WALL_Z;
   const strand = (s: 1 | -1) => [
     new Vector3(x + s * 0.012, top - 0.02, ring.z),
-    new Vector3(x + s * STRAND_HALF, top - 0.2, wallZ + 0.01),
-    new Vector3(x + s * STRAND_HALF, GUARDS.strap.offWallY, wallZ + 0.01),
-    // Out over the forearm, then down in front of the hand.
-    new Vector3(x + s * 0.034, GUARDS.strap.outY, front - 0.005),
-    new Vector3(x + s * 0.036, hand.y, front + 0.005),
-    new Vector3(x + s * 0.035, bottomY + 0.045, hand.z + 0.065),
+    new Vector3(x + s * STRAND_HALF, top - 0.2, z + 0.01),
+    new Vector3(x + s * STRAND_HALF, (top + bottomY) / 2, z),
+    new Vector3(x + s * STRAND_HALF, bottomY + 0.08, z),
+    new Vector3(x + s * 0.018, bottomY + 0.015, z),
   ];
   return new CatmullRomCurve3(
     [
       new Vector3(x, top, ring.z),
       ...strand(1),
-      // The fold, under the palm.
-      new Vector3(x, bottomY, hand.z + 0.015),
+      // The fold at the bottom end.
+      new Vector3(x, bottomY, z),
       ...strand(-1).reverse(),
     ],
     true,
@@ -462,13 +466,9 @@ export function guardPlacements(): GuardPlacement[] {
       pose: {
         stanceHalf: 0.13,
         leanDeg: bs.leanDeg,
-        // Towards the strap along the wall (world −X), not into the wall.
-        leanToward: new Vector3(-1, 0, 0).transformDirection(toLocal),
+        leanToward: new Vector3(...bs.leanToward).transformDirection(toLocal),
         rightHand: strapGripPoint().applyMatrix4(toLocal),
-        // Elbow out towards the stone and down, close to the wall: the upper
-        // arm crosses in front of the strap where it lies flat, and the
-        // forearm comes in behind it, between the cloth and the wall.
-        rightElbowPole: new Vector3(-1, -0.9, -0.1).transformDirection(toLocal),
+        rightElbowPole: new Vector3(...bs.elbowPole).transformDirection(toLocal),
         leftAtSide: true,
       },
     },

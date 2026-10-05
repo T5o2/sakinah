@@ -225,16 +225,26 @@ export const GUARDS = {
     cap: 0.04,
   },
   /**
-   * Black Stone guard (photos 78, 79, 83, 89, 91): on the step, leaning on
-   * the folded black cloth strap that hangs from a ring on the wall: his
-   * body tilts towards it along the wall, his right arm reaches down and out
-   * with the hand in the strap's bottom opening; the left hangs at his side.
+   * Black Stone guard (photos 78, 79, 83, 89, 91, 93, 94): on the step,
+   * close against the wall, leaning a little from the ankles towards the
+   * folded black cloth strap that hangs from a ring on the wall. His right
+   * hand holds the strap's bottom end from the front; the left hangs at his
+   * side.
    */
   blackStone: {
     along: KAABA.marbleBlock.from + KAABA.marbleBlock.width + 0.25,
-    out: 0.27,
+    /** Feet this far out from the wall: close enough that his back and side touch it. */
+    out: 0.22,
     yawDeg: -30,
-    leanDeg: 12,
+    leanDeg: 10,
+    /**
+     * Lean direction in the world: mostly along the wall towards the strap
+     * (−X), a little back towards the wall (−Z), so his shoulder and back
+     * rest on it while his heels stay clear.
+     */
+    leanToward: [-1, 0, -0.2] as [number, number, number],
+    /** Where his right elbow points, in the world: out from the wall and down. */
+    elbowPole: [0, -1, 1] as [number, number, number],
   },
   /**
    * The strap the Black Stone guard holds (photo 89): black cloth, folded in
@@ -250,22 +260,12 @@ export const GUARDS = {
     ringY: 2.45,
     ringRadius: 0.055,
     /**
-     * His hand rests in the bottom opening at hip level (photo 91: step 0.60
-     * + hips 0.92 ≈ 1.52), on the fold just below it. The fold was at his
-     * waist (1.60 m) before he leant on it.
+     * The bottom end of the strap, where the two strands fold, hanging flat
+     * on the wall at the guard's hip (photo 91: step 0.60 + hips 0.92)…
      */
-    handY: 1.5,
-    bottomY: 1.4,
-    /**
-     * The guard's hand is slipped in behind the loop (photo 93): the strands
-     * lie flat on the wall down to here, where his upper arm crosses in front
-     * of them…
-     */
-    offWallY: 1.86,
-    /** …and stand out from it from here down, in front of his forearm and hand… */
-    outY: 1.64,
-    /** …this far from the wall. */
-    front: 0.175,
+    bottomY: 1.47,
+    /** …and his hand closing on it from the front, an ordinary grip. */
+    handY: 1.49,
   },
   /**
    * Yemeni corner (photo 86): on the floor just outside the shadharwan on

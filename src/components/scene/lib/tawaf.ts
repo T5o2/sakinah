@@ -51,13 +51,18 @@ export interface Walker {
   kind: WalkerKind;
   /** Angle at t = 0. */
   theta0: number;
-  /** Distance outside the clearance line, metres. */
+  /** Distance outside the clearance line, metres: the walker's lane. */
   offset: number;
+  /** Walking speed along the lane, m/s (shared by everyone in the lane). */
+  speed: number;
   /** Angular speed, rad/s — always positive (counterclockwise). */
   omega: number;
-  /** Phase of the walking bob, rad. */
+  /** Phase of the walking step, rad. */
   phase: number;
-  /** Uniform 0–1 value for per-figure variation (height, tint). */
+  /** Gentle surge back and forth along the lane: rate (rad/s) and phase. */
+  surgeRate: number;
+  surgePhase: number;
+  /** Uniform 0–1 value for per-figure variation (height). */
   variation: number;
 }
 
@@ -92,36 +97,6 @@ export function walkerKinds(count: number, rng: () => number): WalkerKind[] {
   return kinds;
 }
 
-export function createWalkers(count: number, seed = 1447): Walker[] {
-  const rng = createRng(seed);
-  const [minOffset, maxOffset] = TAWAF.offset;
-  const [minSpeed, maxSpeed] = TAWAF.speed;
-  const kinds = walkerKinds(count, rng);
-  const walkers: Walker[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const offset =
-      minOffset + (maxOffset - minOffset) * rng() ** TAWAF.offsetBias;
-    const speed = minSpeed + (maxSpeed - minSpeed) * rng();
-    // Angular speed from the mean radius of this walker's lane.
-    const laneRadius = CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset;
-    walkers.push({
-      kind: kinds[i]!,
-      theta0: rng() * TAU,
-      offset,
-      omega: speed / laneRadius,
-      phase: rng() * TAU,
-      variation: rng(),
-    });
-  }
-  return walkers;
-}
-
-/** Angle of a walker after `t` seconds. */
-export function walkerTheta(walker: Walker, t: number): number {
-  return walker.theta0 + walker.omega * t;
-}
-
 /**
  * How close a walker's centre may come to the Maqam's centre: its granite
  * footing (1.05 m), a walker's body (0.35 m) and a margin.
@@ -129,28 +104,152 @@ export function walkerTheta(walker: Walker, t: number): number {
 export const MAQAM_KEEP_OUT = 1.05 + 0.35 + 0.3;
 const MAQAM_R = Math.hypot(MAQAM.x, MAQAM.z);
 const MAQAM_THETA = Math.atan2(-MAQAM.z, MAQAM.x);
+/** Lane offset that would pass right over the Maqam's centre. */
+const MAQAM_OFFSET = MAQAM_R - CLEARANCE.base;
 
 /**
- * Lane radius at θ, stepping smoothly round the Maqam Ibrahim: a walker
- * whose lane would cross it eases out (or in, whichever side it is nearer)
- * to clear it, and back. The step reaches the keep-out radius beside the
- * Maqam and fades over 2.5 × that distance before and after it.
+ * Lane offsets: rings `laneSpacing` apart, placed so that the Maqam's centre
+ * falls exactly between two of them (no lane runs into it head-on).
+ */
+export function laneOffsets(): number[] {
+  const [lo, hi] = TAWAF.offset;
+  const step = TAWAF.laneSpacing;
+  const first = Math.ceil((lo - MAQAM_OFFSET) / step - 0.5);
+  const lanes: number[] = [];
+  for (let k = first; MAQAM_OFFSET + (k + 0.5) * step <= hi; k++) {
+    lanes.push(MAQAM_OFFSET + (k + 0.5) * step);
+  }
+  return lanes;
+}
+
+/** Shortest radius a lane reaches in a full turn (away from the Hijr bulge). */
+const laneInnerRadius = (offset: number) => CLEARANCE.base + offset;
+
+/**
+ * The crowd walks in rings ("lanes"), denser near the Kaaba. Everyone in a
+ * lane keeps the lane's pace, so neighbours in a lane never close up; lanes
+ * are far enough apart that people in neighbouring lanes pass side by side.
+ * Spacing within a lane is irregular, with a minimum gap, and each walker
+ * drifts a little forward and back along it, so no one marches in step.
+ */
+export function createWalkers(count: number, seed = 1447): Walker[] {
+  const rng = createRng(seed);
+  const [minOffset, maxOffset] = TAWAF.offset;
+  const [minSpeed, maxSpeed] = TAWAF.speed;
+  const kinds = walkerKinds(count, rng);
+  const lanes = laneOffsets();
+  const minGap = TAWAF.minGap + 2 * TAWAF.surge;
+
+  // Each walker's preferred lane, biased towards the Kaaba…
+  const wanted = kinds.map(() => {
+    const offset =
+      minOffset + (maxOffset - minOffset) * rng() ** TAWAF.offsetBias;
+    let best = 0;
+    lanes.forEach((l, i) => {
+      if (Math.abs(l - offset) < Math.abs(lanes[best]! - offset)) best = i;
+    });
+    return best;
+  });
+  // …within each lane's room (half its length kept free, so gaps stay
+  // irregular); a full lane passes walkers outwards.
+  const room = (k: number) =>
+    Math.floor((Math.PI * laneInnerRadius(lanes[k]!)) / minGap);
+  const members: number[][] = lanes.map(() => []);
+  wanted
+    .map((lane, i) => [lane, i] as const)
+    .sort((a, b) => a[0] - b[0])
+    .forEach(([lane, i]) => {
+      let l = lane;
+      while (l < lanes.length - 1 && members[l]!.length >= room(l)) l++;
+      members[l]!.push(i);
+    });
+
+  const walkers = new Array<Walker>(count);
+  members.forEach((ids, l) => {
+    if (ids.length === 0) return;
+    const offset = lanes[l]!;
+    const speed = minSpeed + (maxSpeed - minSpeed) * rng();
+    // Angular speed from the mean radius of the lane, Hijr bulge included.
+    const omega =
+      speed / (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset);
+    // Irregular gaps round the lane, never under the minimum.
+    const gapMin = minGap / laneInnerRadius(offset);
+    const weights = ids.map(() => -Math.log(1 - rng() * 0.999));
+    const spare = TAU - gapMin * ids.length;
+    const total = weights.reduce((a, b) => a + b, 0);
+    let theta = rng() * TAU;
+    ids.forEach((id, j) => {
+      walkers[id] = {
+        kind: kinds[id]!,
+        theta0: theta,
+        offset,
+        speed,
+        omega,
+        phase: rng() * TAU,
+        surgeRate: 0.25 + 0.2 * rng(),
+        surgePhase: rng() * TAU,
+        variation: rng(),
+      };
+      theta += gapMin + (spare * weights[j]!) / total;
+    });
+  });
+  return walkers;
+}
+
+/** Surge offset along the lane at `t`, metres. */
+function surgeAt(walker: Walker, t: number): number {
+  return TAWAF.surge * Math.sin(walker.surgeRate * t + walker.surgePhase);
+}
+
+/** Distance walked along the lane after `t` seconds, surge included, metres. */
+export function walkerDistance(walker: Walker, t: number): number {
+  return walker.speed * t + surgeAt(walker, t);
+}
+
+/** Angle of a walker after `t` seconds. */
+export function walkerTheta(walker: Walker, t: number): number {
+  return (
+    walker.theta0 +
+    walker.omega * t +
+    surgeAt(walker, t) / laneInnerRadius(walker.offset)
+  );
+}
+
+/**
+ * Radius of a lane at θ, squeezed aside round the Maqam Ibrahim. Near the
+ * Maqam the lanes either side of it move apart, out to the keep-out radius,
+ * and back, the shift fading over a few metres before and after. The
+ * squeeze keeps the lanes in order (it is monotonic in the radius), so
+ * walkers in neighbouring lanes stay apart, only a little closer.
  */
 export function laneRadius(walker: Walker, theta: number): number {
   const r = clearanceRadius(theta) + walker.offset;
   const c = r - MAQAM_R;
+  const width = TAWAF.maqamSqueeze;
+  const reach = 2.65 * MAQAM_KEEP_OUT;
   const along = wrapAngle(theta - MAQAM_THETA) * r;
-  const reach = 2.5 * MAQAM_KEEP_OUT;
-  if (Math.abs(c) >= MAQAM_KEEP_OUT || Math.abs(along) >= reach) return r;
+  if (Math.abs(c) >= width || Math.abs(along) >= reach) return r;
+  const squeezed =
+    Math.sign(c) *
+    (MAQAM_KEEP_OUT + (Math.abs(c) * (width - MAQAM_KEEP_OUT)) / width);
   const w = Math.cos(((Math.PI / 2) * along) / reach) ** 2;
-  const side = c >= 0 ? 1 : -1;
-  return MAQAM_R + side * (Math.abs(c) + (MAQAM_KEEP_OUT - Math.abs(c)) * w);
+  return MAQAM_R + c + (squeezed - c) * w;
 }
 
 /** Floor position of a walker after `t` seconds. */
 export function walkerPosition(walker: Walker, t: number): Point2 {
   const theta = walkerTheta(walker, t);
   return tawafPosition(laneRadius(walker, theta), theta);
+}
+
+/**
+ * Walking step phase at `t`: one half-turn per step, so the feet keep pace
+ * with the distance actually walked and do not slide.
+ */
+export function walkerStep(walker: Walker, t: number): number {
+  return (
+    walker.phase + Math.PI * TAWAF.stepsPerMetre * walkerDistance(walker, t)
+  );
 }
 
 /**

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { BUDGET, TAWAF, TIER_SETTINGS } from "../src/lib/config/scene";
 import { guardPlacements } from "../src/components/scene/figures/guards";
-import { createWalkerGeometry } from "../src/components/scene/figures/walkers";
+import { LEG_SWING } from "../src/components/scene/figures/walkerMaterial";
+import { createWalkerGeometry, walkerLook } from "../src/components/scene/figures/walkers";
 import {
   CLEARANCE,
   HALF_X,
@@ -16,8 +17,10 @@ import {
   createWalkers,
   tawafHeading,
   tawafPosition,
+  walkerDistance,
   walkerHeading,
   walkerPosition,
+  walkerStep,
 } from "../src/components/scene/lib/tawaf";
 
 /**
@@ -214,5 +217,43 @@ describe("tawaf crowd (Phase 2)", () => {
     const crowd = walkers.reduce((sum, w) => sum + perKind[w.kind]!, 0);
     // Everything else in the scene measured 37,188 triangles; keep 15k spare for the birds.
     expect(37_188 + crowd).toBeLessThan(BUDGET.triangles - 15_000);
+  });
+});
+
+describe("tawaf crowd: spacing, walking, variety", () => {
+  const walkers = createWalkers(TIER_SETTINGS.high.walkers);
+
+  it("never lets two walkers overlap: at least 0.6 m between centres", () => {
+    let nearest = Infinity;
+    for (let k = 0; k < 120; k++) {
+      const ps = walkers.map((w) => walkerPosition(w, k * 2.7));
+      for (let i = 0; i < ps.length; i++) {
+        for (let j = i + 1; j < ps.length; j++) {
+          nearest = Math.min(nearest, Math.hypot(ps[i]!.x - ps[j]!.x, ps[i]!.z - ps[j]!.z));
+        }
+      }
+    }
+    expect(nearest).toBeGreaterThan(0.6);
+  });
+
+  it("takes one step per half-turn of the step phase, matched to the distance walked", () => {
+    // A step moves a foot from behind to in front: 2 × leg (0.85 m) × sin(swing).
+    const stride = 2 * 0.85 * Math.sin(LEG_SWING);
+    expect(TAWAF.stepsPerMetre).toBeCloseTo(1 / stride, 6);
+    const w = walkers[0]!;
+    const dPhase = walkerStep(w, 10) - walkerStep(w, 0);
+    const dDist = walkerDistance(w, 10) - walkerDistance(w, 0);
+    expect(dPhase / Math.PI).toBeCloseTo(dDist / stride, 6);
+  });
+
+  it("varies skin and hair: many tones, few bald, some long-haired", () => {
+    const looks = walkers.map((_, i) => walkerLook(i));
+    expect(new Set(looks.map((l) => l.skin)).size).toBeGreaterThanOrEqual(6);
+    expect(new Set(looks.map((l) => l.hair)).size).toBeGreaterThanOrEqual(5);
+    const share = (s: number) => looks.filter((l) => l.style === s).length / looks.length;
+    expect(share(0)).toBeGreaterThan(0.02);
+    expect(share(0)).toBeLessThan(0.15);
+    expect(share(2)).toBeGreaterThan(0.1);
+    expect(share(1)).toBeGreaterThan(0.5);
   });
 });

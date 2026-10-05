@@ -64,9 +64,21 @@ export const TAWAF = {
   offsetBias: 2.3,
   /** Height of each walker: a uniform scale on its figure. */
   heightScale: [0.93, 1.07] as [number, number],
-  /** Walking bob: steps per metre walked, and how high each step lifts, metres. */
-  stepsPerMetre: 1.4,
-  bob: 0.02,
+  /**
+   * Steps per metre walked: one step moves a foot from behind to in front,
+   * 2 × leg length (0.85 m) × sin(leg swing), so planted feet do not slide.
+   */
+  stepsPerMetre: 1 / (2 * 0.85 * Math.sin(0.26)),
+  /** How high the body rises over each step, metres. */
+  bob: 0.015,
+  /** Rings the crowd walks in, this far apart (people pass side by side). */
+  laneSpacing: 0.9,
+  /** Least gap between two walkers in a lane, centre to centre, metres. */
+  minGap: 0.75,
+  /** Each walker drifts this far forward and back along the lane, metres. */
+  surge: 0.12,
+  /** Lanes within this distance of the Maqam squeeze aside round it, metres. */
+  maqamSqueeze: 7,
 };
 
 export const CAMERA = {

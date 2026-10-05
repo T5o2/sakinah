@@ -42,7 +42,6 @@ export const PALETTE = {
   ihram: "#ece9e1",
   abaya: "#121214",
   childCloth: "#b9b2a4",
-  pilgrimSkin: "#a07a5c",
   lampWarm: "#ffd9a0",
   keyLight: "#ffe8c8",
   arcadeGlow: "#1b140c",

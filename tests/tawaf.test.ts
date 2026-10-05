@@ -3,6 +3,7 @@ import { BUDGET, TAWAF, TIER_SETTINGS } from "../src/lib/config/scene";
 import { guardPlacements } from "../src/components/scene/figures/guards";
 import { LEG_SWING } from "../src/components/scene/figures/walkerMaterial";
 import {
+  CARRIED_SCALE,
   createWalkerGeometry,
   HAIR_STYLE,
   walkerLook,
@@ -27,6 +28,8 @@ import {
   walkerPosition,
   walkerRadius,
   walkerStep,
+  walkerTheta,
+  PAIR_CASES,
 } from "../src/components/scene/lib/tawaf";
 
 /**
@@ -135,7 +138,7 @@ describe("walkers", () => {
 
   it("include every figure type in a large crowd", () => {
     const kinds = new Set(createWalkers(900).map((w) => w.kind));
-    expect(kinds).toEqual(new Set(["ihram", "abaya", "carrier", "mother"]));
+    expect(kinds).toEqual(new Set(["ihram", "abaya", "carrier", "mother", "child"]));
   });
 });
 
@@ -143,11 +146,13 @@ describe("tawaf crowd (Phase 2)", () => {
   const walkers = createWalkers(TIER_SETTINGS.high.walkers);
   const times = Array.from({ length: 240 }, (_, i) => i * 1.5);
 
-  it("mixes 60% men in ihram, 32% women in abaya, 5% men and 3% women carrying a child", () => {
+  it("mixes 60% men in ihram, 32% women in abaya, 5% men and 3% women carrying a child, with 3.5% children walking", () => {
     const count = (k: string) => walkers.filter((w) => w.kind === k).length;
     const n = walkers.length;
-    const [abaya, carrier, mother] = [0.32, 0.05, 0.03].map((s) => Math.round(n * s));
-    expect(count("ihram")).toBe(n - abaya! - carrier! - mother!);
+    const child = Math.round(n * 0.035);
+    const [abaya, carrier, mother] = [0.32, 0.05, 0.03].map((s) => Math.round(n * s * 0.965));
+    expect(count("child")).toBe(child);
+    expect(count("ihram")).toBe(n - abaya! - carrier! - mother! - child);
     expect(count("abaya")).toBe(abaya);
     expect(count("carrier")).toBe(carrier);
     expect(count("mother")).toBe(mother);
@@ -221,7 +226,7 @@ describe("tawaf crowd (Phase 2)", () => {
 
   it("keeps the whole scene within budget, with room left for the pigeons", () => {
     const perKind = Object.fromEntries(
-      (["ihram", "abaya", "carrier", "mother"] as const).map((k) => [k, triangleCount(createWalkerGeometry(k))]),
+      (["ihram", "abaya", "carrier", "mother", "child"] as const).map((k) => [k, triangleCount(createWalkerGeometry(k))]),
     );
     const crowd = walkers.reduce((sum, w) => sum + perKind[w.kind]!, 0);
     // Everything else in the scene measured 37,188 triangles; keep 15k spare for the birds.
@@ -232,7 +237,7 @@ describe("tawaf crowd (Phase 2)", () => {
 describe("tawaf crowd: spacing, walking, variety", () => {
   const walkers = createWalkers(TIER_SETTINGS.high.walkers);
 
-  it("never lets two walkers overlap, whatever their breadth", () => {
+  it("never lets two walkers overlap, whatever their breadth (a parent and child touch only by the hands)", () => {
     let nearest = Infinity;
     let clearance = Infinity;
     const r = walkers.map(walkerRadius);
@@ -240,6 +245,7 @@ describe("tawaf crowd: spacing, walking, variety", () => {
       const ps = walkers.map((w) => walkerPosition(w, k * 2.7));
       for (let i = 0; i < ps.length; i++) {
         for (let j = i + 1; j < ps.length; j++) {
+          if (walkers[i]!.partner === j) continue;
           const d = Math.hypot(ps[i]!.x - ps[j]!.x, ps[i]!.z - ps[j]!.z);
           nearest = Math.min(nearest, d);
           clearance = Math.min(clearance, d - r[i]! - r[j]!);
@@ -253,9 +259,9 @@ describe("tawaf crowd: spacing, walking, variety", () => {
 
   it("varies bodies: heights and breadths across the range, most in the middle", () => {
     const { body } = TAWAF;
-    const men = walkers.filter((w) => w.kind !== "abaya").map((w) => w.height * body.modelHeight.man);
-    const women = walkers.filter((w) => w.kind === "abaya").map((w) => w.height * body.modelHeight.woman);
-    const breadth = walkers.map((w) => w.breadth);
+    const men = walkers.filter((w) => w.kind === "ihram" || w.kind === "carrier").map((w) => w.height * body.modelHeight.man);
+    const women = walkers.filter((w) => w.kind === "abaya" || w.kind === "mother").map((w) => w.height * body.modelHeight.woman);
+    const breadth = walkers.filter((w) => w.kind !== "child").map((w) => w.breadth);
     const within = (xs: number[], [lo, hi]: [number, number]) => {
       expect(Math.min(...xs)).toBeGreaterThanOrEqual(lo);
       expect(Math.max(...xs)).toBeLessThanOrEqual(hi);
@@ -305,7 +311,7 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     const metres = (w: (typeof walkers)[number]) =>
       w.height * (woman(w) ? body.modelHeight.woman : body.modelHeight.man);
     const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-    const men = walkers.filter((w) => !woman(w)).map(metres);
+    const men = walkers.filter((w) => !woman(w) && w.kind !== "child").map(metres);
     const women = walkers.filter(woman).map(metres);
     expect(mean(men) - mean(women)).toBeGreaterThan(0.1);
     expect(Math.min(...men)).toBeLessThan(Math.max(...women));
@@ -315,7 +321,7 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     let pairs = 0;
     let taller = 0;
     for (const g of groups.values()) {
-      const ms = g.filter((w) => !woman(w));
+      const ms = g.filter((w) => !woman(w) && w.kind !== "child");
       if (ms.length === 0) continue;
       const top = Math.max(...ms.map(metres));
       for (const w of g.filter(woman)) {
@@ -338,8 +344,54 @@ describe("tawaf crowd: spacing, walking, variety", () => {
     expect(new Set(all.filter((c) => c.girl).map((c) => c.cloth))).toEqual(
       new Set([PALETTE.childWhite, PALETTE.childBlack]),
     );
-    const sizes = children.map((c) => c.scale);
-    expect(Math.max(...sizes) - Math.min(...sizes)).toBeGreaterThan(0.15);
+    // Three sizes, mostly small or middle, and smaller than before (0.85–1.15).
+    const share = (s: number) => children.filter((c) => c.size === s).length / children.length;
+    expect(share(0) + share(1)).toBeGreaterThan(0.6);
+    expect(share(2)).toBeGreaterThan(0);
+    for (const scales of Object.values(CARRIED_SCALE)) {
+      expect(scales).toHaveLength(3);
+      expect(Math.max(...scales)).toBeLessThan(0.96);
+    }
+  });
+
+  it("has children walk with a parent, the four ways about equally", () => {
+    const children = walkers.filter((w) => w.kind === "child");
+    const perCase = PAIR_CASES.map((_, c) => children.filter((w) => w.pairCase === c).length);
+    expect(Math.max(...perCase) - Math.min(...perCase)).toBeLessThanOrEqual(1);
+    const { body } = TAWAF;
+    for (const child of children) {
+      const parent = walkers[child.partner]!;
+      expect(parent.partner).toBe(walkers.indexOf(child));
+      const { parent: kind, childAhead } = PAIR_CASES[child.pairCase]!;
+      expect(parent.kind).toBe(kind);
+      // Same lane, same pace: never apart.
+      expect(parent.offset).toBe(child.offset);
+      expect(parent.omega).toBe(child.omega);
+      const gaps = [0, 37, 140].map((t) => {
+        const a = walkerPosition(child, t);
+        const b = walkerPosition(parent, t);
+        return Math.hypot(a.x - b.x, a.z - b.z);
+      });
+      for (const g of gaps) {
+        expect(g).toBeGreaterThan(0.35);
+        expect(g).toBeLessThan(0.95);
+      }
+      // The one behind holds on: the child's arms, or the parent's.
+      expect(childAhead ? parent.reach : child.reach).toBeGreaterThan(0.2);
+      expect(childAhead ? child.reach : parent.reach).toBe(0);
+      // Who is ahead: travel is towards larger angles.
+      expect(walkerTheta(child, 0) > walkerTheta(parent, 0)).toBe(childAhead);
+      const metres = child.height * body.modelHeight.child;
+      expect(metres).toBeGreaterThanOrEqual(0.9);
+      expect(metres).toBeLessThanOrEqual(1.3);
+    }
+  });
+
+  it("gives walking children shorter, quicker steps than adults at the same pace", () => {
+    const child = walkers.find((w) => w.kind === "child")!;
+    const parent = walkers[child.partner]!;
+    const steps = (w: (typeof walkers)[number]) => walkerStep(w, 20) - walkerStep(w, 0);
+    expect(steps(child)).toBeGreaterThan(steps(parent) * 1.2);
   });
 });
 
@@ -405,5 +457,14 @@ describe("tawaf crowd: group mix", () => {
     expect(couples).toBeGreaterThan(friends);
     expect(couples / groups.size).toBeGreaterThan(0.33);
     expect(couples / groups.size).toBeLessThan(0.5);
+  });
+});
+
+describe("walker shader inputs", () => {
+  it("stays within WebGL's 16 vertex attribute slots", () => {
+    // Per vertex, from walkers.ts, plus per instance from TawafCrowd
+    // (aSkin, aHair, aLook, aChild, aChildLook) and the instance matrix (4 slots).
+    const perVertex = Object.keys(createWalkerGeometry("carrier").attributes).length;
+    expect(perVertex + 5 + 4).toBeLessThanOrEqual(16);
   });
 });

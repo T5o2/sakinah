@@ -39,7 +39,10 @@ attribute vec3 aHair;
 attribute vec2 aLook;
 attribute vec4 aKid;
 attribute vec3 aChild;
-attribute vec2 aChildLook;
+// Per instance: carried child's size, girl (1) or boy (0), and arms raised
+// forward (radians, 0 = swinging). Packed: WebGL allows only 16 attribute
+// slots, and the instance matrix alone takes four.
+attribute vec3 aChildLook;
 uniform float uSwing;
 uniform float uHem;
 // Rotation about the figure's sideways (x) axis.
@@ -53,7 +56,11 @@ mat3 walkerSwing(float a) {
         "#include <beginnormal_vertex>",
         `#include <beginnormal_vertex>
 float walkerStep = sin(aLook.y);
-mat3 walkerRot = walkerSwing(aMotion.x * uSwing * walkerStep);
+float walkerAngle = aMotion.x * uSwing * walkerStep;
+// Arms (swing weight under 1) raised forward when holding someone.
+float walkerArm = abs(aMotion.x);
+if (aChildLook.z > 0.001 && walkerArm > 0.05 && walkerArm < 0.75) walkerAngle = -aChildLook.z;
+mat3 walkerRot = walkerSwing(walkerAngle);
 objectNormal = walkerRot * objectNormal;`,
       )
       .replace(

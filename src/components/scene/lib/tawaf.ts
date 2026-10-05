@@ -45,7 +45,7 @@ export function clearanceRadius(theta: number): number {
   return CLEARANCE.base + CLEARANCE.hijrBulge * bulge;
 }
 
-export type WalkerKind = "ihram" | "abaya" | "carrier" | "mother";
+export type WalkerKind = "ihram" | "abaya" | "carrier" | "mother" | "child";
 
 export interface Walker {
   kind: WalkerKind;
@@ -68,9 +68,33 @@ export interface Walker {
   breadth: number;
   /** Index of the group this walker walks with, or −1 alone. */
   group: number;
+  /** A parent and a walking child: the other one's index, or −1. */
+  partner: number;
+  /** Which of the four ways they walk (see PAIR_CASES), or −1. */
+  pairCase: number;
+  /** Arms raised forward, radians: on a parent's shoulders or a parent's back. 0 = arms swinging. */
+  reach: number;
 }
 
-export type GroupKind = "couple" | "family" | "friends";
+export type GroupKind = "couple" | "family" | "friends" | "parentChild";
+
+/**
+ * A child walking with a parent: behind the father holding his back,
+ * ahead of the father with his hands on its shoulders, behind the mother
+ * holding her abaya, ahead of the mother with her hands on its shoulders.
+ */
+export const PAIR_CASES = [
+  { parent: "ihram", childAhead: false },
+  { parent: "ihram", childAhead: true },
+  { parent: "abaya", childAhead: false },
+  { parent: "abaya", childAhead: true },
+] as const;
+
+export interface Pair {
+  parent: number;
+  child: number;
+  pairCase: number;
+}
 
 /** Small deterministic PRNG (mulberry32) so the scene — and its poster — is reproducible. */
 export function createRng(seed: number): () => number {
@@ -89,14 +113,18 @@ export function createRng(seed: number): () => number {
  * so the kinds mix evenly round the mataf.
  */
 export function walkerKinds(count: number, rng: () => number): WalkerKind[] {
-  const carriers = Math.round(count * WALKER_MIX.carrier);
-  const abayas = Math.round(count * WALKER_MIX.abaya);
-  const mothers = Math.round(count * WALKER_MIX.mother);
+  // Walking children come out of every other kind in proportion.
+  const children = Math.round(count * WALKER_MIX.child);
+  const rest = 1 - WALKER_MIX.child;
+  const carriers = Math.round(count * WALKER_MIX.carrier * rest);
+  const abayas = Math.round(count * WALKER_MIX.abaya * rest);
+  const mothers = Math.round(count * WALKER_MIX.mother * rest);
   const kinds: WalkerKind[] = [
-    ...Array<WalkerKind>(count - carriers - abayas - mothers).fill("ihram"),
+    ...Array<WalkerKind>(count - carriers - abayas - mothers - children).fill("ihram"),
     ...Array<WalkerKind>(abayas).fill("abaya"),
     ...Array<WalkerKind>(carriers).fill("carrier"),
     ...Array<WalkerKind>(mothers).fill("mother"),
+    ...Array<WalkerKind>(children).fill("child"),
   ];
   for (let i = kinds.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -163,26 +191,52 @@ interface Unit {
 /**
  * Picks walkers for groups out of the kinds already drawn (so the mix is
  * unchanged), until about `TAWAF.groups.share` of the crowd walks in one.
+ * Every walking child goes with a parent, the four cases in turn; about
+ * half of those pairs walk within a family, the rest on their own.
  */
 export function formGroups(
   kinds: WalkerKind[],
   rng: () => number,
-): { kind: GroupKind; ids: number[] }[] {
+): { kind: GroupKind; ids: number[]; pairs: Pair[] }[] {
   const pools: Record<WalkerKind, number[]> = {
     ihram: [],
     abaya: [],
     carrier: [],
     mother: [],
+    child: [],
   };
   kinds.forEach((k, i) => pools[k].push(i));
   const take = (k: WalkerKind) => pools[k].pop();
+
+  // Parent and child pairs, the four cases about equally.
+  const pairs: Pair[] = [];
+  const cases = pools.child.map((_, j) => j % PAIR_CASES.length);
+  for (let i = cases.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [cases[i], cases[j]] = [cases[j]!, cases[i]!];
+  }
+  for (const pairCase of cases) {
+    const child = take("child");
+    const parent = take(PAIR_CASES[pairCase]!.parent);
+    if (child === undefined || parent === undefined) break;
+    pairs.push({ parent, child, pairCase });
+  }
+
   const target = Math.round(kinds.length * TAWAF.groups.share);
-  const groups: { kind: GroupKind; ids: number[] }[] = [];
+  const groups: { kind: GroupKind; ids: number[]; pairs: Pair[] }[] = [];
   let grouped = 0;
+  // Pairs walking on their own.
+  const alone = pairs.filter((_, i) => i % 2 === 1);
+  const inFamilies = pairs.filter((_, i) => i % 2 === 0);
+  for (const pair of alone) {
+    groups.push({ kind: "parentChild", ids: [], pairs: [pair] });
+    grouped += 2;
+  }
   let misses = 0;
   while (grouped < target && misses < 20) {
     const u = rng();
     const ids: (number | undefined)[] = [];
+    const with_: Pair[] = [];
     let kind: GroupKind;
     // Couples most often (about 40% of groups), then families, then friends.
     if (u < 0.5) {
@@ -191,9 +245,13 @@ export function formGroups(
     } else if (u < 0.78) {
       kind = "family";
       const size = 3 + Math.floor(rng() * 3);
+      const pair = inFamilies.pop();
+      if (pair) with_.push(pair);
       ids.push(take(rng() < 0.4 && pools.carrier.length ? "carrier" : "ihram"));
-      ids.push(take(rng() < 0.35 && pools.mother.length ? "mother" : "abaya"));
-      for (let k = 2; k < size; k++) ids.push(take(rng() < 0.5 ? "abaya" : "ihram"));
+      if (!pair || PAIR_CASES[pair.pairCase]!.parent === "ihram") {
+        ids.push(take(rng() < 0.35 && pools.mother.length ? "mother" : "abaya"));
+      }
+      while (ids.length + 2 * with_.length < size) ids.push(take(rng() < 0.5 ? "abaya" : "ihram"));
     } else {
       kind = "friends";
       const size = 2 + Math.floor(rng() * 3);
@@ -202,12 +260,15 @@ export function formGroups(
     if (ids.some((id) => id === undefined)) {
       // Not enough of a kind left: put back what was taken and try another.
       for (const id of ids) if (id !== undefined) pools[kinds[id]!].push(id);
+      inFamilies.push(...with_);
       misses++;
       continue;
     }
-    groups.push({ kind, ids: ids as number[] });
-    grouped += ids.length;
+    groups.push({ kind, ids: ids as number[], pairs: with_ });
+    grouped += ids.length + 2 * with_.length;
   }
+  // Pairs no family took walk on their own.
+  for (const pair of inFamilies) groups.push({ kind: "parentChild", ids: [], pairs: [pair] });
   return groups;
 }
 
@@ -234,6 +295,13 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   const span = ([lo, hi]: [number, number], u: number) => lo + (hi - lo) * u;
   const isWoman = (kind: WalkerKind) => kind === "abaya" || kind === "mother";
   const bodies = kinds.map((kind) => {
+    if (kind === "child") {
+      return {
+        // Children of every age across the range, not mostly the middle.
+        height: span(body.childHeight, rng()) / body.modelHeight.child,
+        breadth: span([0.9, 1.1], middling()),
+      };
+    }
     const woman = isWoman(kind);
     const metres = span(woman ? body.womenHeight : body.menHeight, middling());
     return {
@@ -241,16 +309,19 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
       breadth: span(body.breadth, middling()),
     };
   });
+  /** A walker's width relative to an adult's (children are narrower). */
+  const width = (i: number) => bodies[i]!.breadth * (kinds[i] === "child" ? 0.65 : 1);
   /** Room a walker takes along a lane from strangers: its body, and the surge. */
-  const need = (i: number) => TAWAF.minGap * bodies[i]!.breadth + 2 * TAWAF.surge;
+  const need = (i: number) => TAWAF.minGap * width(i) + 2 * TAWAF.surge;
   /** Room within its own group, which surges as one. */
-  const core = (i: number) => TAWAF.minGap * bodies[i]!.breadth;
+  const core = (i: number) => TAWAF.minGap * width(i);
 
   // Units: each group, laid out in a loose cluster, and each walker alone.
   const groups = formGroups(kinds, rng);
   // In couples and families the men are mostly taller than the women: a
   // woman as tall as the tallest man with her is redrawn a little shorter.
-  for (const { ids } of groups) {
+  for (const { ids: singles, pairs } of groups) {
+    const ids = [...singles, ...pairs.map((p) => p.parent)];
     const metres = (i: number) =>
       bodies[i]!.height *
       (isWoman(kinds[i]!) ? body.modelHeight.woman : body.modelHeight.man);
@@ -264,19 +335,75 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
       bodies[i]!.height = (lo + (top - lo) * middling()) / body.modelHeight.woman;
     }
   }
-  const units: Unit[] = groups.map(({ ids }, g) => {
-    // Fill the two lanes of a corridor from the front, each member going
-    // a little behind the last one in its lane: side by side or staggered.
+  // Parent and child: one close behind the other in a lane, the one behind
+  // holding the back of the one ahead, or with hands on its shoulders.
+  const reach = kinds.map(() => 0);
+  const partnerOf = kinds.map(() => -1);
+  const caseOf = kinds.map(() => -1);
+  const pairGap = ({ parent, child, pairCase }: Pair): number => {
+    const p = bodies[parent]!;
+    const c = bodies[child]!;
+    const mother = kinds[parent] === "abaya";
+    partnerOf[parent] = child;
+    partnerOf[child] = parent;
+    caseOf[parent] = caseOf[child] = pairCase;
+    if (!PAIR_CASES[pairCase]!.childAhead) {
+      // The child, behind, holds the back of the ihram or the abaya at about
+      // its own shoulder height, arms out in front.
+      const arm = 0.33 * c.height;
+      reach[child] = 1.4;
+      const hold = (mother ? 0.15 : 0.13) * p.breadth + arm * Math.sin(1.4) - 0.02;
+      // …but never so close that the hems touch.
+      const hems = (mother ? 0.2 : 0.25) * p.breadth + 0.14 * c.breadth + 0.01;
+      return Math.max(hold, hems);
+    }
+    // The parent, behind, rests both hands on the child's shoulders.
+    const shoulder = (mother ? 1.32 : 1.38) * p.height;
+    const arm = (mother ? 0.47 : 0.54) * p.height;
+    const drop = shoulder - 0.93 * c.height;
+    const angle = Math.acos(Math.min(0.95, Math.max(0.2, drop / arm)));
+    reach[parent] = angle;
+    // Never so close that the robes touch.
+    return Math.max(arm * Math.sin(angle), 0.4);
+  };
+
+  const units: Unit[] = groups.map(({ ids, pairs }, g) => {
+    // Blocks: each single member, and each pair (the one behind first).
+    const blocks: { ids: number[]; gap: number }[] = [
+      ...ids.map((id) => ({ ids: [id], gap: 0 })),
+      ...pairs.map((pair) => {
+        const gap = pairGap(pair);
+        const ahead = PAIR_CASES[pair.pairCase]!.childAhead;
+        return { ids: ahead ? [pair.parent, pair.child] : [pair.child, pair.parent], gap };
+      }),
+    ];
+    for (let i = blocks.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
+    }
+    // Fill the two lanes of a corridor from the front, each block going a
+    // little behind the last one in its lane: side by side or staggered.
     const next = [0, rng() * 0.35];
-    const members = ids.map((id) => {
+    const members: Unit["members"] = [];
+    for (const block of blocks) {
       const lane = next[0]! <= next[1]! ? (rng() < 0.8 ? 0 : 1) : rng() < 0.8 ? 1 : 0;
-      const along = next[lane]! + core(id) / 2 + rng() * 0.2;
-      next[lane] = along + core(id) / 2;
-      return { id, lane, along };
-    });
+      const [first, second] = block.ids;
+      const along = next[lane]! + core(first!) / 2 + rng() * 0.2;
+      members.push({ id: first!, lane, along });
+      let last = first!;
+      let end = along;
+      if (second !== undefined) {
+        end = along + block.gap;
+        members.push({ id: second, lane, along: end });
+        last = second;
+      }
+      next[lane] = end + core(last) / 2;
+    }
     return { members, group: g };
   });
-  const inGroup = new Set(groups.flatMap((g) => g.ids));
+  const inGroup = new Set(
+    groups.flatMap((g) => [...g.ids, ...g.pairs.flatMap((p) => [p.parent, p.child])]),
+  );
   kinds.forEach((_, id) => {
     if (!inGroup.has(id)) units.push({ members: [{ id, lane: rng() < 0.5 ? 0 : 1, along: 0 }], group: -1 });
   });
@@ -319,6 +446,8 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   const tryPlace = (band: number, u: number) => {
     const unit = units[u]!;
     const width = bands[band]!.length;
+    // A one-lane corridor takes people walking alone only.
+    if (width === 1 && unit.members.length > 1) return false;
     const lane = (m: Unit["members"][number]) => Math.min(m.lane, width - 1);
     // One-lane corridor: the whole group goes one behind another.
     const along = (m: Unit["members"][number], k: number) =>
@@ -384,6 +513,9 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
           surgePhase,
           ...bodies[m.id]!,
           group: unit.group,
+          partner: partnerOf[m.id]!,
+          pairCase: caseOf[m.id]!,
+          reach: reach[m.id]!,
         };
       });
     });
@@ -443,15 +575,18 @@ export function walkerPosition(walker: Walker, t: number): Point2 {
  * longer strides, so fewer steps.
  */
 export function walkerStep(walker: Walker, t: number): number {
+  // A child's legs are shorter for its height: shorter, quicker steps.
+  const leg = walker.kind === "child" ? TAWAF.body.childLeg : 1;
   return (
     walker.phase +
-    (Math.PI * TAWAF.stepsPerMetre * walkerDistance(walker, t)) / walker.height
+    (Math.PI * TAWAF.stepsPerMetre * walkerDistance(walker, t)) /
+      (walker.height * leg)
   );
 }
 
 /** Half a walker's width at the shoulders and robe hem, metres (for spacing checks). */
 export function walkerRadius(walker: Walker): number {
-  return 0.27 * walker.breadth;
+  return (walker.kind === "child" ? 0.17 : 0.27) * walker.breadth;
 }
 
 /**

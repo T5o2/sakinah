@@ -14,6 +14,9 @@ describe("scene config", () => {
   it("walker mix sums to 1", () => {
     const total =
       WALKER_MIX.ihram + WALKER_MIX.abaya + WALKER_MIX.carrier + WALKER_MIX.mother;
+    // Walking children are taken out of the adults, on top of the mix.
+    expect(WALKER_MIX.child).toBeGreaterThan(0.03);
+    expect(WALKER_MIX.child).toBeLessThan(0.04);
     expect(total).toBeCloseTo(1, 10);
   });
 

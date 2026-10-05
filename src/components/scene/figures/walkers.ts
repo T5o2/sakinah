@@ -387,6 +387,64 @@ function motherPieces(): Piece[] {
   ];
 }
 
+/**
+ * A child walking, 1.20 m (scaled per walker from 0.90 to 1.30 m): a long
+ * plain robe in the child's cloth (white, or black for some girls), legs
+ * and feet below it, sleeves to the wrists, a boy's hair or a girl's head
+ * cover. Arms swing, or reach forward to hold a parent's back.
+ */
+function childPieces(): Piece[] {
+  const sleeve = (side: number): Piece[] => [
+    {
+      geometry: limb(v(side * 0.13, 0.93, 0), v(side * 0.15, 0.63, 0.03), 0.035, 0.03),
+      tint: TINT.child,
+      swing: side * -0.5,
+      pivot: 0.93,
+    },
+    {
+      geometry: ball(v(side * 0.15, 0.6, 0.035), 0.028),
+      tint: TINT.skin,
+      swing: side * -0.5,
+      pivot: 0.93,
+    },
+  ];
+  const leg = (side: number): Piece[] => [
+    {
+      geometry: limb(v(side * 0.06, 0.5, 0), v(side * 0.06, 0.06, 0), 0.045, 0.032),
+      tint: TINT.skin,
+      swing: side,
+      pivot: 0.62,
+    },
+    {
+      geometry: ball(v(side * 0.06, 0.03, 0.035), 0.033, [1, 0.6, 2]),
+      tint: TINT.skin,
+      swing: side,
+      pivot: 0.62,
+    },
+  ];
+  return [
+    ...leg(-1),
+    ...leg(1),
+    {
+      geometry: new CylinderGeometry(0.12, 0.17, 0.73, 8, 2, true)
+        .scale(1, 1, 0.8)
+        .translate(0, 0.585, 0),
+      tint: TINT.child,
+      hemAbove: 0.4,
+    },
+    {
+      geometry: new SphereGeometry(0.13, 8, 2, 0, Math.PI * 2, 0, Math.PI / 2)
+        .scale(1, 0.4, 0.8)
+        .translate(0, 0.95, 0),
+      tint: TINT.child,
+    },
+    ...sleeve(-1),
+    ...sleeve(1),
+    { geometry: limb(v(0, 0.95, 0), v(0, 1.03, 0), 0.035, 0.035), tint: TINT.skin },
+    ...childHead(v(0, 1.11, 0), 0.085, v(0, 0, 0)),
+  ];
+}
+
 /** One merged geometry per kind of walker, with colour and walker data per vertex. */
 export function createWalkerGeometry(kind: WalkerKind): BufferGeometry {
   const pieces = {
@@ -394,10 +452,10 @@ export function createWalkerGeometry(kind: WalkerKind): BufferGeometry {
     abaya: abayaPieces,
     carrier: carrierPieces,
     mother: motherPieces,
+    child: childPieces,
   }[kind];
   return build(pieces());
 }
-
 /** Skin tones, dark to light, about equally common (sRGB). */
 const SKIN_TONES = [
   "#3f2a1f",
@@ -426,6 +484,19 @@ const HAIR_STYLES: [number, number][] = [
   [HAIR_STYLE.long, 0.19],
   [HAIR_STYLE.veryLong, 0.09],
 ];
+/** Carried children's sizes with their shares: mostly small or middle. */
+const CHILD_SIZES: [number, number][] = [
+  [0, 0.42],
+  [1, 0.4],
+  [2, 0.18],
+];
+/** Scale of a carried child at each size, on the shoulders and in the arms. */
+export const CARRIED_SCALE = {
+  carrier: [0.62, 0.74, 0.86],
+  mother: [0.7, 0.82, 0.94],
+} as const;
+/** Young children's hair: black and browns only. */
+export const CHILD_HAIR = ["#141110", "#3b2a1e", "#6b4a2e"] as const;
 /** A carried child's cloth: white for boys; white or black for girls. */
 const CHILD_WHITE = PALETTE.childWhite;
 const CHILD_BLACK = PALETTE.childBlack;
@@ -445,8 +516,11 @@ export interface WalkerLook {
   hair: string;
   /** Hair style, see HAIR_STYLE. */
   style: number;
-  /** For a carried child: girl or boy, cloth colour (sRGB), size scale. */
-  child: { girl: boolean; cloth: string; scale: number };
+  /**
+   * For a child (carried or walking): girl or boy, cloth colour (sRGB), and
+   * for a carried child its size: 0 small, 1 middle, 2 a little bigger.
+   */
+  child: { girl: boolean; cloth: string; size: number };
 }
 
 /** Skin, hair colour and hair style for walker `index` (deterministic). */
@@ -461,7 +535,7 @@ export function walkerLook(index: number): WalkerLook {
       return {
         girl,
         cloth: girl && rng() < 0.5 ? CHILD_BLACK : CHILD_WHITE,
-        scale: 0.85 + 0.3 * rng(),
+        size: pick(CHILD_SIZES, rng()),
       };
     })(),
   };

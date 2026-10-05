@@ -55,6 +55,11 @@ export const WALKER_MIX = {
   carrier: 0.05,
   /** A woman in abaya carrying a small child in her arms. */
   mother: 0.03,
+  /**
+   * Children walking with a father or mother; taken out of the kinds above
+   * in proportion, so those shares stay as they are among the adults.
+   */
+  child: 0.035,
 } as const;
 
 export const TAWAF = {
@@ -72,8 +77,11 @@ export const TAWAF = {
   body: {
     menHeight: [1.58, 1.92] as [number, number],
     womenHeight: [1.48, 1.72] as [number, number],
+    childHeight: [0.9, 1.3] as [number, number],
+    /** A child's leg relative to its height, against an adult's: shorter strides. */
+    childLeg: 0.85,
     breadth: [0.85, 1.2] as [number, number],
-    modelHeight: { man: 1.7, woman: 1.62 },
+    modelHeight: { man: 1.7, woman: 1.62, child: 1.2 },
   },
   /**
    * Steps per metre walked: one step moves a foot from behind to in front,

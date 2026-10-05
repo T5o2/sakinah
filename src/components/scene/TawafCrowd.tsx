@@ -13,7 +13,12 @@ import {
 } from "three";
 import { TAWAF } from "@/lib/config/scene";
 import { createWalkerMaterial } from "./figures/walkerMaterial";
-import { createWalkerGeometry, walkerLook } from "./figures/walkers";
+import {
+  CARRIED_SCALE,
+  CHILD_HAIR,
+  createWalkerGeometry,
+  walkerLook,
+} from "./figures/walkers";
 import {
   createWalkers,
   type Walker,
@@ -23,7 +28,7 @@ import {
   walkerStep,
 } from "./lib/tawaf";
 
-const KINDS: WalkerKind[] = ["ihram", "abaya", "carrier", "mother"];
+const KINDS: WalkerKind[] = ["ihram", "abaya", "carrier", "mother", "child"];
 /** Frames to wait before showing the crowd: the contact shadows are drawn once, without it. */
 const HIDDEN_FRAMES = 2;
 
@@ -80,18 +85,22 @@ export function TawafCrowd({ count, still }: { count: number; still: boolean }) 
       const hair = new Float32Array(n * 3);
       const look = new Float32Array(n * 2);
       const childCloth = new Float32Array(n * 3);
-      const childLook = new Float32Array(n * 2);
-      members.forEach(({ index }, i) => {
+      const childLook = new Float32Array(n * 3);
+      members.forEach(({ w, index }, i) => {
         const l = walkerLook(index);
-        colour.set(l.skin).toArray(skin, i * 3);
-        colour.set(l.hair).toArray(hair, i * 3);
+        // A walking child has its parent's skin, and young children's hair.
+        const own = kind !== "child";
+        colour.set(own ? l.skin : walkerLook(w.partner).skin).toArray(skin, i * 3);
+        colour.set(own ? l.hair : CHILD_HAIR[index % CHILD_HAIR.length]!).toArray(hair, i * 3);
         look[i * 2] = l.style;
         colour.set(l.child.cloth).toArray(childCloth, i * 3);
-        childLook[i * 2] = l.child.scale;
-        childLook[i * 2 + 1] = l.child.girl ? 1 : 0;
+        childLook[i * 3] =
+          kind === "carrier" || kind === "mother" ? CARRIED_SCALE[kind][l.child.size]! : 1;
+        childLook[i * 3 + 1] = l.child.girl ? 1 : 0;
+        childLook[i * 3 + 2] = w.reach;
       });
       geometry.setAttribute("aChild", new InstancedBufferAttribute(childCloth, 3));
-      geometry.setAttribute("aChildLook", new InstancedBufferAttribute(childLook, 2));
+      geometry.setAttribute("aChildLook", new InstancedBufferAttribute(childLook, 3));
       geometry.setAttribute("aSkin", new InstancedBufferAttribute(skin, 3));
       geometry.setAttribute("aHair", new InstancedBufferAttribute(hair, 3));
       const lookAttr = new InstancedBufferAttribute(look, 2);

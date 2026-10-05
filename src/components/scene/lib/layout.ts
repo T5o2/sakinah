@@ -225,16 +225,16 @@ export const GUARDS = {
     cap: 0.04,
   },
   /**
-   * Black Stone guard (photos 78, 79, 83, 89): on the step, leaning a little
-   * towards the stone. His right hand, raised beside him, holds the folded
-   * black cloth strap hanging from a ring on the wall; the left hangs at his
-   * side.
+   * Black Stone guard (photos 78, 79, 83, 89, 91): on the step, leaning on
+   * the folded black cloth strap that hangs from a ring on the wall: his
+   * body tilts towards it along the wall, his right arm reaches down and out
+   * with the hand in the strap's bottom opening; the left hangs at his side.
    */
   blackStone: {
     along: KAABA.marbleBlock.from + KAABA.marbleBlock.width + 0.25,
     out: 0.27,
     yawDeg: -30,
-    leanDeg: 6,
+    leanDeg: 12,
   },
   /**
    * The strap the Black Stone guard holds (photo 89): black cloth, folded in
@@ -249,10 +249,13 @@ export const GUARDS = {
     along: 0.75,
     ringY: 2.45,
     ringRadius: 0.055,
-    /** The fold at the bottom: the guard's waist (step 0.60 + 1.00). */
-    bottomY: 1.6,
-    /** Where his hand closes on it, a little above his shoulder. */
-    gripY: 2.05,
+    /**
+     * His hand rests in the bottom opening at hip level (photo 91: step 0.60
+     * + hips 0.92 ≈ 1.52), on the fold just below it. The fold was at his
+     * waist (1.60 m) before he leant on it.
+     */
+    handY: 1.5,
+    bottomY: 1.42,
   },
   /**
    * Yemeni corner (photo 86): on the floor just outside the shadharwan on

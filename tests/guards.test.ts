@@ -128,13 +128,21 @@ describe("Black Stone guard", () => {
     }
   });
 
-  it("holds the strap with his raised right hand, the left at his side", () => {
-    const [right, left] = bodyOf("blackStone").palms;
+  it("leans on the strap: hand down at his hip in its opening, the left at his side", () => {
+    const { palms, geometry } = bodyOf("blackStone");
+    const [right, left] = palms;
     expect(right!.distanceTo(strapGripPoint())).toBeLessThan(1e-3);
-    // Raised: about shoulder height above his feet.
-    expect(right!.y - st.height).toBeGreaterThan(1.35);
+    // Down at hip level (hips 0.92 m above his feet).
+    expect(Math.abs(right!.y - st.height - 0.92)).toBeLessThan(0.08);
     // Hanging: the left palm below his waist.
     expect(left!.y - st.height).toBeLessThan(0.9);
+    // Leaning 10–15°, along the wall: nothing of him goes into the wall.
+    expect(GUARDS.blackStone.leanDeg).toBeGreaterThanOrEqual(10);
+    expect(GUARDS.blackStone.leanDeg).toBeLessThanOrEqual(15);
+    const pos = geometry.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      expect(pos.getZ(i)).toBeGreaterThan(HALF_Z);
+    }
   });
 });
 
@@ -147,7 +155,7 @@ describe("Black Stone guard's strap", () => {
     box.union(p.geometry.boundingBox as Box3);
   }
 
-  it("hangs from a ring above the guard's head, down to his waist", () => {
+  it("hangs from a ring above the guard's head, down to his hip", () => {
     const head = bodyOf("blackStone").box.max.y;
     const ring = strapRingCentre();
     expect(ring.y - strap.ringRadius).toBeGreaterThan(head);
@@ -159,22 +167,24 @@ describe("Black Stone guard's strap", () => {
   it("lies against the door wall, clear of the marble block and the frame", () => {
     expect(box.min.z).toBeGreaterThan(HALF_Z);
     expect(box.max.z - HALF_Z).toBeLessThan(0.12);
-    expect(box.min.y).toBeGreaterThan(mb.height + mb.cap + 0.2);
+    expect(box.min.y).toBeGreaterThan(mb.height + mb.cap + 0.1);
     // The frame meets the door wall about 0.44 m from the corner.
     expect(box.min.x + HALF_X).toBeGreaterThan(0.6);
   });
 
-  it("passes through the guard's grip", () => {
-    const grip = strapGripPoint();
+  it("opens round the guard's hand, the fold just below it", () => {
+    const hand = strapGripPoint();
     const pos = strapParts()[0]!.geometry.getAttribute("position");
-    let nearest = Infinity;
+    let left = false;
+    let right = false;
     for (let i = 0; i < pos.count; i++) {
-      nearest = Math.min(
-        nearest,
-        grip.distanceTo(new Vector3(pos.getX(i), pos.getY(i), pos.getZ(i))),
-      );
+      if (Math.abs(pos.getY(i) - hand.y) > 0.02) continue;
+      // Cloth on both sides of the hand, clear of the palm (half-width 0.036).
+      if (pos.getX(i) < hand.x - 0.036) left = true;
+      if (pos.getX(i) > hand.x + 0.036) right = true;
+      expect(Math.abs(pos.getX(i) - hand.x)).toBeGreaterThan(0.036);
     }
-    // Cloth surface within the palm's half-width.
-    expect(nearest).toBeLessThan(0.05);
+    expect(left && right).toBe(true);
+    expect(box.min.y).toBeLessThan(hand.y - 0.05);
   });
 });

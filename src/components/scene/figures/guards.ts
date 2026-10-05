@@ -53,8 +53,10 @@ type Beret = "red" | "black";
 interface Pose {
   /** Ankles either side of the centre line. "At ease" (photo 82): shoulder width. */
   stanceHalf: number;
-  /** Lean of the upper body to the figure's right, about the hips. */
+  /** Lean of the upper body about the hips. */
   leanDeg: number;
+  /** Horizontal direction of the lean, in the figure's own frame; default his right (−X). */
+  leanToward?: Vector3;
   /** Middle of the right palm, in the figure's own frame; none = at ease. */
   rightHand?: Vector3;
   /** Left arm hanging at the side instead of behind the back. */
@@ -208,9 +210,13 @@ export function guardParts(
   );
 
   // Arms. At ease: hands clasped at the small of the back (photo 82).
+  // Tipping "up" towards the lean direction is a turn about up × direction.
+  const leanAxis = UP.clone()
+    .cross(pose.leanToward ?? v(-1, 0, 0))
+    .normalize();
   const leanM = new Matrix4()
     .makeTranslation(0, BODY.hip, 0)
-    .multiply(new Matrix4().makeRotationZ(pose.leanDeg * DEG))
+    .multiply(new Matrix4().makeRotationAxis(leanAxis, pose.leanDeg * DEG))
     .multiply(new Matrix4().makeTranslation(0, -BODY.hip, 0));
   const leanInv = leanM.clone().invert();
   for (const side of [-1, 1]) {
@@ -222,8 +228,8 @@ export function guardParts(
       // Reaching arm: solved in the leaned frame the shoulder ends up in.
       const target = pose.rightHand.clone().applyMatrix4(leanInv);
       const lower = BODY.forearm + BODY.hand;
-      // Raised beside him, the elbow dropping down and out to his side.
-      elbow = elbowFor(sh, target, BODY.upperArm, lower, v(-0.6, -1, 0.15));
+      // Reaching down and out to his side, the elbow turned out.
+      elbow = elbowFor(sh, target, BODY.upperArm, lower, v(-1, 0.2, 0.1));
       const dir = target.clone().sub(elbow).normalize();
       wrist = elbow.clone().addScaledVector(dir, BODY.forearm);
       palm = elbow.clone().addScaledVector(dir, lower);
@@ -329,22 +335,20 @@ export function strapRingCentre(): Vector3 {
 /** Half the gap between the folded strap's two strands, and its thickness. */
 const STRAND_HALF = 0.028;
 const STRAP_RADIUS = 0.026;
+/** Half-width of the opening the strands spread to round the guard's hand. */
+const OPENING_HALF = 0.075;
 
-/** Where the Black Stone guard's palm closes on the strap's nearer strand, in world metres. */
+/** Middle of the Black Stone guard's palm, inside the strap's bottom opening, in world metres. */
 export function strapGripPoint(): Vector3 {
-  const { along, gripY } = GUARDS.strap;
-  return new Vector3(
-    -HALF_X + along + STRAND_HALF + 0.02,
-    gripY,
-    HALF_Z + 0.075,
-  );
+  const { along, handY } = GUARDS.strap;
+  return new Vector3(-HALF_X + along, handY, HALF_Z + 0.08);
 }
 
 /**
- * The folded black cloth strap (photo 89): one loop over the bottom of the
- * ring, its two strands hanging side by side down the wall to the fold at
- * the guard's waist; the nearer strand is drawn out a little into his hand.
- * Matte cloth, so it joins the guards' mesh.
+ * The folded black cloth strap (photos 89, 91): one loop over the bottom of
+ * the ring, its two strands hanging side by side down the wall, then
+ * spreading into an opening drawn out from the wall by the guard's hand,
+ * which rests in the fold. Matte cloth, so it joins the guards' mesh.
  */
 export function strapParts(): Part[] {
   const { bottomY, ringRadius } = GUARDS.strap;
@@ -353,20 +357,20 @@ export function strapParts(): Part[] {
   // Centre of the cloth where it lies over the ring's bottom bar.
   const top = ring.y - ringRadius + 0.009 + STRAP_RADIUS;
   const wallZ = HALF_Z + STRAP_RADIUS + 0.01;
-  const grip = strapGripPoint();
+  const hand = strapGripPoint();
   const strand = (s: 1 | -1) => [
     new Vector3(x + s * 0.012, top - 0.02, ring.z),
     new Vector3(x + s * STRAND_HALF, top - 0.2, wallZ + 0.01),
-    s > 0
-      ? new Vector3(x + STRAND_HALF + 0.008, grip.y, grip.z - 0.03)
-      : new Vector3(x - STRAND_HALF, grip.y, wallZ),
-    new Vector3(x + s * STRAND_HALF, bottomY + 0.15, wallZ),
-    new Vector3(x + s * 0.016, bottomY + 0.015, wallZ),
+    new Vector3(x + s * STRAND_HALF, hand.y + 0.3, wallZ),
+    // The opening: the strands part and come out from the wall round the hand.
+    new Vector3(x + s * 0.05, hand.y + 0.13, wallZ + 0.02),
+    new Vector3(x + s * OPENING_HALF, hand.y, hand.z - 0.01),
+    new Vector3(x + s * 0.05, bottomY + 0.035, hand.z),
   ];
   const points = [
     new Vector3(x, top, ring.z),
     ...strand(1),
-    new Vector3(x, bottomY, wallZ),
+    new Vector3(x, bottomY, hand.z),
     ...strand(-1).reverse(),
   ];
   const tube = new TubeGeometry(
@@ -423,6 +427,8 @@ export function guardPlacements(): GuardPlacement[] {
       pose: {
         stanceHalf: 0.13,
         leanDeg: bs.leanDeg,
+        // Towards the strap along the wall (world −X), not into the wall.
+        leanToward: new Vector3(-1, 0, 0).transformDirection(toLocal),
         rightHand: strapGripPoint().applyMatrix4(toLocal),
         leftAtSide: true,
       },

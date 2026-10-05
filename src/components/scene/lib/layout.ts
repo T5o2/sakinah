@@ -92,21 +92,26 @@ export const KAABA = {
     openingFraction: 0.43,
   },
   /**
-   * Mizab, the gold waterspout over Hijr Ismail. Channel documented about
-   * 2.53 m long, 26 cm wide, its sides 23 cm high; it leaves the Hijr wall
-   * `outside` metres (its place, kept). The base ornament and the hanging
-   * spout are measured on photo 72 against the channel's side height:
-   * ornament 3.1 × as tall and 2.8 × as wide, spout 2 × as long.
+   * Mizab, the gold waterspout over Hijr Ismail. Documented: about 2.53–2.58 m
+   * long, 26 cm wide, its sides 23 cm high. Sources disagree on the 58 cm:
+   * inside the roof wall (leaving 1.95 m outside) or outside it. Photo 72
+   * settles it: the outer part shows 5.5 × the side height, so at least
+   * 1.26 m even seen square-on — 0.58 m outside is ruled out; 1.95 m is what
+   * a 40° view gives, and the 58 cm inside matches the parapet's thickness.
+   * Base ornament and spout measured on photo 72 against the side height
+   * (51 px = 0.23 m), widths corrected for that 40° view: ornament 4.4 × as
+   * wide and 3.04 × as tall, spout 0.87 × as wide and 2.74 × as long. Photo
+   * 70, face-on, agrees (ornament 4.9 × the spout's width).
    */
   mizab: {
     length: 2.53,
     width: 0.26,
     side: 0.23,
-    outside: 1.4,
+    outside: 1.95,
     /** Bottom of the channel, above the mataf floor. */
     bottom: 13.51,
-    crest: { width: 0.23 * 2.8, height: 0.23 * 3.1 },
-    spout: { width: 0.15, length: 0.23 * 2 },
+    crest: { width: 0.23 * 4.4, height: 0.23 * 3.04 },
+    spout: { width: 0.23 * 0.87, length: 0.23 * 2.74 },
   },
   /** Black Stone: centre of the silver frame (documented 1.1–1.5 m). */
   blackStoneHeight: 1.4,

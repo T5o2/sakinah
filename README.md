@@ -4,8 +4,8 @@
 
 A bilingual (Arabic / English) web app that reads a photo, clip, or live stream of Masjid al-Haram and answers one question: **should I go now, or wait — and when is best for me?**
 
-> الحالة: الأساس مكتمل، والمشهد الافتتاحي متقدم، و**المرحلة 0** (التخطيط وفق «التكليف الموحد») بانتظار الموافقة. لا يوجد تحليل بعد؛ يبدأ في المرحلة 2. المراحل الجديدة في `SPEC.md` §15.
-> Status: foundation complete, hero scene well underway, and **phase 0** (re-planning under the unified brief) awaiting approval. No analysis yet — that starts in phase 2. The new phase plan is in `SPEC.md` §15.
+> الحالة: الأساس مكتمل، والمرحلة 0 (التخطيط) منتهية بقرارات معتمدة، و**المرحلة 1** (الواجهة الافتتاحية) مقسمة إلى مهام في `docs/ARCHITECTURE.md` §E.3. لا يوجد تحليل بعد؛ يبدأ في المرحلة 2.
+> Status: foundation complete, phase 0 (planning) closed with approved decisions, and **phase 1** (landing page) broken into tasks in `docs/ARCHITECTURE.md` §E.3. No analysis yet — that starts in phase 2.
 
 - المواصفات: [`SPEC.md`](SPEC.md)
 - المعمارية وخطة المراحل: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)

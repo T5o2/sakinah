@@ -65,8 +65,28 @@ export const WALKER_MIX = {
 export const TAWAF = {
   /** Walking speed range, metres per second (scene units are metres). */
   speed: [0.7, 1.05] as [number, number],
-  /** Distance kept outside the Kaaba/Hijr clearance line, metres. */
+  /**
+   * Lane offsets, metres: where the lanes have turned into rings (see
+   * `shapeBlend`), how far outside the Kaaba/Hijr clearance line they run.
+   */
   offset: [0.8, 22] as [number, number],
+  /**
+   * Gap between the innermost walkers (of average breadth) and the Kaaba's
+   * marble base (shadharwan) or the Hijr wall, metres: they walk close by,
+   * as in the real mataf.
+   */
+  wallGap: 0.5,
+  /**
+   * Inner lanes follow the Kaaba and the Hijr (a rounded rectangle, and a
+   * half ellipse round the Hijr), then turn gradually into the outer rings
+   * over this much lane offset, metres.
+   */
+  shapeBlend: 7,
+  /**
+   * Lanes near a guard step out round him: least centre-to-centre distance,
+   * how far across the lanes it fades out, and along them (metres).
+   */
+  guardKeepOut: { distance: 1, width: 3, reach: 3 },
   /** >1 packs walkers closer to the Kaaba, as in the real mataf. */
   offsetBias: 2.3,
   /**

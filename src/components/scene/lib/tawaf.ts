@@ -1,5 +1,5 @@
 import { TAWAF, WALKER_MIX } from "@/lib/config/scene";
-import { CLEARANCE, MAQAM } from "./layout";
+import { CLEARANCE, GUARDS, HALF_X, HALF_Z, HIJR, KAABA, MAQAM } from "./layout";
 
 /**
  * Tawaf kinematics. Pure functions, no three.js, so they can be unit-tested.
@@ -37,7 +37,11 @@ export function wrapAngle(theta: number): number {
   return a > Math.PI ? a - TAU : a;
 }
 
-/** Innermost radius a walker may use at θ, clear of the Kaaba and Hijr Ismail. */
+/**
+ * The outer rings' line at θ: a circle clear of the Kaaba's corners that
+ * bulges round Hijr Ismail. Lanes far enough out run at a fixed offset
+ * outside it; inner lanes follow the Kaaba and the Hijr instead (laneShapeRadius).
+ */
 export function clearanceRadius(theta: number): number {
   const half = CLEARANCE.hijrHalfSectorDeg * DEG;
   const a = Math.abs(wrapAngle(theta));
@@ -49,13 +53,13 @@ export type WalkerKind = "ihram" | "abaya" | "carrier" | "mother" | "child";
 
 export interface Walker {
   kind: WalkerKind;
-  /** Angle at t = 0. */
+  /** Phase round the lane at t = 0 (2π a full turn, see lanePoint). */
   theta0: number;
-  /** Distance outside the clearance line, metres: the walker's lane. */
+  /** The walker's lane, metres (see laneShapeRadius). */
   offset: number;
-  /** Walking speed along the lane, m/s (shared by everyone in the lane). */
+  /** Walking speed along the lane, m/s, steady all the way round. */
   speed: number;
-  /** Angular speed, rad/s — always positive (counterclockwise). */
+  /** Phase speed, rad/s, shared by its corridor — always positive (counterclockwise). */
   omega: number;
   /** Phase of the walking step, rad. */
   phase: number;
@@ -158,8 +162,219 @@ export function laneOffsets(): number[] {
   return lanes;
 }
 
-/** Shortest radius a lane reaches in a full turn (away from the Hijr bulge). */
-const laneInnerRadius = (offset: number) => CLEARANCE.base + offset;
+/* ------------------------------------------------------------------------ */
+/* Lane shapes: close round the Kaaba and the Hijr, rings further out.       */
+/* ------------------------------------------------------------------------ */
+
+/** Half a walker's width at average breadth (walkerRadius at breadth 1). */
+const BODY_HALF_WIDTH = 0.27;
+/** The Hijr wall's capstone overhangs both faces by 9 cm (landmarks/hijr.ts). */
+const HIJR_FACE = HIJR.thickness / 2 + 0.09;
+/** The marble base's outer edge, all round (also where the dark strip runs without it). */
+const BASE_X = HALF_X + KAABA.baseOutset;
+const BASE_Z = HALF_Z + KAABA.baseOutset;
+/** The Hijr's outer face, as a whole ellipse: its gates and openings count as closed. */
+const HIJR_A = HIJR.radiusX + HIJR_FACE;
+const HIJR_B = HIJR.radiusZ + HIJR_FACE;
+
+/** Distance from (x, z) to an origin-centred ellipse with semi-axes a, b; 0 inside. */
+function ellipseDistance(x: number, z: number, a: number, b: number): number {
+  const px = Math.abs(x);
+  const pz = Math.abs(z);
+  if ((px / a) ** 2 + (pz / b) ** 2 <= 1) return 0;
+  // Newton's method on the angle of the nearest point, in the first quadrant.
+  let t = Math.atan2(a * pz, b * px);
+  for (let i = 0; i < 8; i++) {
+    const c = Math.cos(t);
+    const s = Math.sin(t);
+    const ex = a * c - px;
+    const ez = b * s - pz;
+    const g = -ex * a * s + ez * b * c;
+    const h = (a * s) ** 2 + (b * c) ** 2 - ex * a * c - ez * b * s;
+    t = Math.min(Math.PI / 2, Math.max(0, t - g / h));
+  }
+  return Math.hypot(px - a * Math.cos(t), pz - b * Math.sin(t));
+}
+
+/**
+ * Distance on the floor from (x, z) to the nearest thing walkers go round:
+ * the Kaaba's marble base or the Hijr's outer face. 0 inside either.
+ */
+export function obstacleDistance(x: number, z: number): number {
+  const base = Math.hypot(
+    Math.max(Math.abs(x) - BASE_X, 0),
+    Math.max(Math.abs(z) - BASE_Z, 0),
+  );
+  return Math.min(base, ellipseDistance(x - HIJR.centerX, z, HIJR_A, HIJR_B));
+}
+
+/** Outer root of a·r² + b·r + c = 0 (a > 0, real roots), or 0 if none. */
+function outerRoot(a: number, b: number, c: number): number {
+  const disc = b * b - 4 * a * c;
+  return disc < 0 ? 0 : (-b + Math.sqrt(disc)) / (2 * a);
+}
+
+/**
+ * Radius at θ of the line `d` metres out from the Kaaba and the Hijr. Both
+ * are convex and contain the origin, so each line `d` out from one of them
+ * is crossed once by a ray from the origin, and the line round both is the
+ * farther of the two crossings.
+ */
+function contourRadius(theta: number, d: number): number {
+  const ux = Math.abs(Math.cos(theta));
+  const uz = Math.abs(Math.sin(theta));
+  // Round the base: a rectangle with rounded corners, solved directly.
+  let base: number;
+  if (ux > 1e-9 && ((BASE_X + d) / ux) * uz <= BASE_Z) base = (BASE_X + d) / ux;
+  else if (uz > 1e-9 && ((BASE_Z + d) / uz) * ux <= BASE_X) base = (BASE_Z + d) / uz;
+  else {
+    const dot = ux * BASE_X + uz * BASE_Z;
+    base = outerRoot(1, -2 * dot, BASE_X ** 2 + BASE_Z ** 2 - d * d);
+  }
+  // Round the Hijr: no closed form, but the line lies within the ellipse
+  // grown by d, so search only where that reaches past the base's line.
+  const vx = Math.cos(theta);
+  const vz = -Math.sin(theta);
+  const A = HIJR_A + d;
+  const B = HIJR_B + d;
+  const grown = outerRoot(
+    vx ** 2 / A ** 2 + vz ** 2 / B ** 2,
+    (-2 * vx * HIJR.centerX) / A ** 2,
+    HIJR.centerX ** 2 / A ** 2 - 1,
+  );
+  if (grown <= base) return base;
+  let lo = base;
+  let hi = grown;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (ellipseDistance(mid * vx - HIJR.centerX, mid * vz, HIJR_A, HIJR_B) > d) hi = mid;
+    else lo = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** Where the guards stand on the floor, as figures/guards.ts places them. */
+export function guardFloorPositions(): Point2[] {
+  const bs = GUARDS.blackStone;
+  const ye = GUARDS.yemeni;
+  const gz = HIJR.radiusZ * Math.sin(HIJR.arcHalfAngleDeg * DEG) + GUARDS.hijrGate.out;
+  return [
+    { x: -HALF_X + bs.along, z: HALF_Z + bs.out },
+    { x: -HALF_X - ye.out, z: -HALF_Z + ye.along },
+    { x: GUARDS.hijrGate.x, z: gz },
+    { x: GUARDS.hijrGate.x, z: -gz },
+  ];
+}
+
+/** Centre line of the innermost lane, out from the base and the Hijr. */
+const INNER_DISTANCE = TAWAF.wallGap + BODY_HALF_WIDTH;
+
+/** Each guard: where he stands (angle, radius) and how far the innermost lane must step out. */
+const GUARD_BUMPS = guardFloorPositions().map((g) => ({
+  theta: Math.atan2(-g.z, g.x),
+  radius: Math.hypot(g.x, g.z),
+  lift: Math.max(
+    0,
+    obstacleDistance(g.x, g.z) + TAWAF.guardKeepOut.distance - INNER_DISTANCE,
+  ),
+}));
+
+/**
+ * Extra distance from the walls for a lane `c` metres outside the innermost
+ * one, at θ: the most for the innermost lane beside a guard, fading across
+ * the lanes and along them. It shrinks with `c` more slowly than lanes are
+ * spaced (lift < width), so lanes keep their order.
+ */
+function guardLift(theta: number, c: number): number {
+  const { width, reach } = TAWAF.guardKeepOut;
+  if (c >= width) return 0;
+  let lift = 0;
+  for (const g of GUARD_BUMPS) {
+    const along = wrapAngle(theta - g.theta) * g.radius;
+    if (Math.abs(along) >= reach) continue;
+    lift += g.lift * (1 - c / width) * Math.cos(((Math.PI / 2) * along) / reach) ** 2;
+  }
+  return lift;
+}
+
+let innermost: number | undefined;
+/** Offset of the innermost lane. */
+const innerLane = () => (innermost ??= laneOffsets()[0]!);
+
+/**
+ * Radius at θ of the lane at `offset`, before the squeeze round the Maqam.
+ * The innermost lane runs `wallGap` clear of the Kaaba's base and the Hijr
+ * (bodies of average breadth), each lane after it one lane spacing further
+ * out, so near the Kaaba the lanes are rounded rectangles with a half
+ * ellipse round the Hijr. Over `shapeBlend` metres of offset they ease into
+ * the outer rings, which run at `offset` outside the clearance line.
+ */
+export function laneShapeRadius(theta: number, offset: number): number {
+  const outer = clearanceRadius(theta) + offset;
+  const c = Math.max(0, offset - innerLane());
+  const u = c / TAWAF.shapeBlend;
+  if (u >= 1) return outer;
+  const inner = contourRadius(theta, INNER_DISTANCE + c + guardLift(theta, c));
+  const w = u * u * (3 - 2 * u);
+  return inner + (outer - inner) * w;
+}
+
+/**
+ * A lane's path, sampled at even angles round the Kaaba, with the distance
+ * walked to each sample, so walkers advance by distance along it.
+ */
+interface LanePath {
+  length: number;
+  s: Float64Array;
+  x: Float64Array;
+  z: Float64Array;
+}
+
+const LANE_SAMPLES = 720;
+const lanePaths = new Map<number, LanePath>();
+
+function lanePath(offset: number): LanePath {
+  const cached = lanePaths.get(offset);
+  if (cached) return cached;
+  const n = LANE_SAMPLES;
+  const x = new Float64Array(n + 1);
+  const z = new Float64Array(n + 1);
+  const s = new Float64Array(n + 1);
+  for (let i = 0; i <= n; i++) {
+    const theta = (TAU * (i % n)) / n;
+    const p = tawafPosition(laneShapeRadius(theta, offset), theta);
+    x[i] = p.x;
+    z[i] = p.z;
+    if (i > 0) s[i] = s[i - 1]! + Math.hypot(x[i]! - x[i - 1]!, z[i]! - z[i - 1]!);
+  }
+  const path = { length: s[n]!, s, x, z };
+  lanePaths.set(offset, path);
+  return path;
+}
+
+/** Metres along a lane per radian of a walker's phase (its length over 2π). */
+export function laneScale(offset: number): number {
+  return lanePath(offset).length / TAU;
+}
+
+/**
+ * Point on the lane at `offset` for a walker's phase: one full turn is 2π,
+ * and equal steps of phase are equal distances walked. Phase 0 is on the
+ * +X axis; growing phase goes counterclockwise, like θ.
+ */
+export function lanePoint(offset: number, phase: number): Point2 {
+  const { length, s, x, z } = lanePath(offset);
+  const at = (((phase / TAU) % 1) + 1) % 1 * length;
+  let lo = 0;
+  let hi = LANE_SAMPLES;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (s[mid]! <= at) lo = mid;
+    else hi = mid;
+  }
+  const k = (at - s[lo]!) / (s[hi]! - s[lo]! || 1);
+  return { x: x[lo]! + (x[hi]! - x[lo]!) * k, z: z[lo]! + (z[hi]! - z[lo]!) * k };
+}
 
 /**
  * Lanes paired into corridors two lanes wide, walked at one angular speed,
@@ -439,9 +654,10 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   }
   const placed = bands.map(() => [] as { unit: number; angles: number[] }[]);
   const cursors = bands.map((b) => b.map(() => 0));
+  // Metres along a lane per radian of phase: turns room in metres into phase.
   const radius = (band: number, lane: number) => {
     const b = bands[band]!;
-    return laneInnerRadius(lanes[b[Math.min(lane, b.length - 1)]!]!);
+    return laneScale(lanes[b[Math.min(lane, b.length - 1)]!]!);
   };
   const tryPlace = (band: number, u: number) => {
     const unit = units[u]!;
@@ -486,10 +702,9 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
   placed.forEach((list, band) => {
     if (list.length === 0) return;
     const b = bands[band]!;
-    const meanOffset = b.reduce((a, l) => a + lanes[l]!, 0) / b.length;
-    const omega =
-      (minSpeed + (maxSpeed - minSpeed) * rng()) /
-      (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + meanOffset);
+    // One pace in phase for the whole corridor, so groups walk side by side.
+    const meanScale = b.reduce((a, l) => a + laneScale(lanes[l]!), 0) / b.length;
+    const omega = (minSpeed + (maxSpeed - minSpeed) * rng()) / meanScale;
     const spare = TAU - Math.max(...cursors[band]!);
     const weights = list.map(() => -Math.log(1 - rng() * 0.999));
     const total = weights.reduce((a, c) => a + c, 0);
@@ -505,7 +720,7 @@ export function createWalkers(count: number, seed = 1447): Walker[] {
           kind: kinds[m.id]!,
           theta0: angles[k]! + shift,
           offset,
-          speed: omega * (CLEARANCE.base + CLEARANCE.hijrBulge * 0.25 + offset),
+          speed: omega * laneScale(offset),
           omega,
           phase: rng() * TAU,
           // A group surges as one, so it never spreads out.
@@ -533,24 +748,26 @@ export function walkerDistance(walker: Walker, t: number): number {
   return walker.speed * t + surgeAt(walker, t);
 }
 
-/** Angle of a walker after `t` seconds. */
+/**
+ * A walker's phase after `t` seconds: how far round its lane, 2π a full
+ * turn (see lanePoint). Always growing: counterclockwise.
+ */
 export function walkerTheta(walker: Walker, t: number): number {
   return (
     walker.theta0 +
     walker.omega * t +
-    surgeAt(walker, t) / laneInnerRadius(walker.offset)
+    surgeAt(walker, t) / laneScale(walker.offset)
   );
 }
 
 /**
- * Radius of a lane at θ, squeezed aside round the Maqam Ibrahim. Near the
- * Maqam the lanes either side of it move apart, out to the keep-out radius,
- * and back, the shift fading over a few metres before and after. The
- * squeeze keeps the lanes in order (it is monotonic in the radius), so
+ * A lane's radius `r` at θ, squeezed aside round the Maqam Ibrahim. Near
+ * the Maqam the lanes either side of it move apart, out to the keep-out
+ * radius, and back, the shift fading over a few metres before and after.
+ * The squeeze keeps the lanes in order (it is monotonic in the radius), so
  * walkers in neighbouring lanes stay apart, only a little closer.
  */
-export function laneRadius(walker: Walker, theta: number): number {
-  const r = clearanceRadius(theta) + walker.offset;
+export function aroundMaqam(r: number, theta: number): number {
   const c = r - MAQAM_R;
   const width = TAWAF.maqamSqueeze;
   const reach = 2.65 * MAQAM_KEEP_OUT;
@@ -565,8 +782,9 @@ export function laneRadius(walker: Walker, theta: number): number {
 
 /** Floor position of a walker after `t` seconds. */
 export function walkerPosition(walker: Walker, t: number): Point2 {
-  const theta = walkerTheta(walker, t);
-  return tawafPosition(laneRadius(walker, theta), theta);
+  const p = lanePoint(walker.offset, walkerTheta(walker, t));
+  const theta = Math.atan2(-p.z, p.x);
+  return tawafPosition(aroundMaqam(Math.hypot(p.x, p.z), theta), theta);
 }
 
 /**

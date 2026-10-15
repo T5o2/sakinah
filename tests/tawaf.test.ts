@@ -10,7 +10,6 @@ import {
 } from "../src/components/scene/figures/walkers";
 import { PALETTE } from "../src/components/scene/lib/palette";
 import {
-  CLEARANCE,
   HALF_X,
   HALF_Z,
   HIJR,
@@ -21,6 +20,11 @@ import { triangleCount } from "../src/components/scene/lib/parts";
 import {
   clearanceRadius,
   createWalkers,
+  guardFloorPositions,
+  laneOffsets,
+  lanePoint,
+  laneShapeRadius,
+  obstacleDistance,
   tawafHeading,
   tawafPosition,
   walkerDistance,
@@ -98,10 +102,120 @@ describe("tawaf direction", () => {
   });
 });
 
-describe("tawaf clearance", () => {
+describe("tawaf lanes round the Kaaba and the Hijr (Phase 1, task 1.1)", () => {
+  const walkers = createWalkers(TIER_SETTINGS.high.walkers);
+  const times = Array.from({ length: 240 }, (_, i) => i * 1.5);
+  const lanes = laneOffsets();
+  const deg = (a: number) => (a * Math.PI) / 180;
+  const polar = (p: { x: number; z: number }) => Math.atan2(-p.z, p.x);
+  const near = (a: number, b: number, w: number) =>
+    Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < w;
+
+  it("measures distance to the marble base and the Hijr's outer face", () => {
+    // Middle of the door wall: 1 m out from the base's edge.
+    expect(obstacleDistance(0, HALF_Z + KAABA.baseOutset + 1)).toBeCloseTo(1, 6);
+    // Out from a corner, diagonally.
+    const c = { x: -(HALF_X + KAABA.baseOutset), z: -(HALF_Z + KAABA.baseOutset) };
+    expect(obstacleDistance(c.x - 0.6, c.z - 0.8)).toBeCloseTo(1, 6);
+    // The Hijr's apex, capstone included (it overhangs the wall by 9 cm).
+    const apex = HIJR.centerX + HIJR.radiusX + HIJR.thickness / 2 + 0.09;
+    expect(obstacleDistance(apex + 1, 0)).toBeCloseTo(1, 4);
+    // Anywhere round the Hijr: against a fine sampling of its outer face.
+    const a = HIJR.radiusX + HIJR.thickness / 2 + 0.09;
+    const b = HIJR.radiusZ + HIJR.thickness / 2 + 0.09;
+    for (const [x, z] of [[14, 6], [10, -7.5], [17, 2], [9, 7]] as const) {
+      let best = Infinity;
+      for (let i = 0; i <= 4000; i++) {
+        const phi = -Math.PI / 2 + (Math.PI * i) / 4000;
+        best = Math.min(best, Math.hypot(x - HIJR.centerX - a * Math.cos(phi), z - b * Math.sin(phi)));
+      }
+      expect(obstacleDistance(x, z)).toBeCloseTo(best, 3);
+    }
+  });
+
+  it("never lets a walker onto the Kaaba, its marble base or the Hijr", () => {
+    let clearance = Infinity;
+    for (const w of walkers) {
+      for (const t of times) {
+        const p = walkerPosition(w, t);
+        clearance = Math.min(clearance, obstacleDistance(p.x, p.z) - walkerRadius(w));
+      }
+    }
+    expect(clearance).toBeGreaterThan(0.4);
+  });
+
+  it("walks the innermost walkers about half a metre from the base and the Hijr wall", () => {
+    // Nearest body edge in each sector, over six minutes: the middle of the
+    // three open walls (θ ±8° round each normal) and right round the Hijr.
+    const sectors = { door: deg(-90), southWest: deg(90), southEast: deg(180) };
+    const nearest: Record<string, number> = {};
+    for (const w of walkers) {
+      for (const t of times) {
+        const p = walkerPosition(w, t);
+        const edge = obstacleDistance(p.x, p.z) - walkerRadius(w);
+        const th = polar(p);
+        for (const [k, a] of Object.entries(sectors)) {
+          if (near(th, a, deg(8))) nearest[k] = Math.min(nearest[k] ?? Infinity, edge);
+        }
+        if (Math.abs(th) < deg(50)) nearest.hijr = Math.min(nearest.hijr ?? Infinity, edge);
+      }
+    }
+    for (const k of ["door", "southWest", "southEast", "hijr"]) {
+      expect(nearest[k]).toBeGreaterThan(0.4);
+      expect(nearest[k]).toBeLessThan(0.6);
+    }
+  });
+
+  it("shapes the inner lanes on the Kaaba and the Hijr, the outer ones into the old rings", () => {
+    // Innermost lane: the same distance from the walls all round, away from the guards.
+    const guards = guardFloorPositions();
+    for (let i = 0; i < 720; i++) {
+      const p = lanePoint(lanes[0]!, (i / 720) * Math.PI * 2);
+      // Beside a guard the lane steps out on purpose (its fade reaches a little
+      // past `reach` where the lane runs wider than the guard stands).
+      if (guards.some((g) => Math.hypot(p.x - g.x, p.z - g.z) < 5)) continue;
+      // Within 2.5 cm: between samples the path runs straight, a chord of the
+      // curve (most along the Hijr's flanks).
+      expect(Math.abs(obstacleDistance(p.x, p.z) - (TAWAF.wallGap + 0.27))).toBeLessThan(0.025);
+    }
+    // Past the blend, a lane is the ring it always was.
+    for (const offset of lanes.filter((l) => l >= lanes[0]! + TAWAF.shapeBlend)) {
+      for (let i = 0; i < 72; i++) {
+        const theta = (i / 72) * Math.PI * 2;
+        expect(laneShapeRadius(theta, offset)).toBe(clearanceRadius(theta) + offset);
+      }
+    }
+  });
+
+  it("keeps the lanes in order, never closer than a body's width apart", () => {
+    for (let i = 0; i < 1440; i++) {
+      const theta = (i / 1440) * Math.PI * 2;
+      for (let k = 1; k < lanes.length; k++) {
+        expect(laneShapeRadius(theta, lanes[k]!) - laneShapeRadius(theta, lanes[k - 1]!)).toBeGreaterThan(0.7);
+      }
+    }
+  });
+
+  it("walks each lane at a steady pace, the corners and the Hijr included", () => {
+    for (const w of walkers.slice(0, 80)) {
+      for (const t of [0, 13, 47, 90]) {
+        const a = walkerPosition(w, t);
+        const b = walkerPosition(w, t + 0.2);
+        // Away from the squeeze round the Maqam, which bends some lanes aside.
+        if (Math.hypot(a.x - MAQAM.x, a.z - MAQAM.z) < 9) continue;
+        const moved = Math.hypot(b.x - a.x, b.z - a.z);
+        const walked = walkerDistance(w, t + 0.2) - walkerDistance(w, t);
+        expect(moved / walked).toBeGreaterThan(0.9);
+        expect(moved / walked).toBeLessThan(1.05);
+      }
+    }
+  });
+});
+
+describe("tawaf clearance (outer rings)", () => {
   const bodyRadius = 0.35;
 
-  it("keeps walkers off the Kaaba and its marble base", () => {
+  it("keeps the rings off the Kaaba and its marble base", () => {
     const corner = Math.hypot(
       HALF_X + KAABA.baseOutset,
       HALF_Z + KAABA.baseOutset,
@@ -113,7 +227,7 @@ describe("tawaf clearance", () => {
     }
   });
 
-  it("keeps walkers outside the Hijr Ismail wall", () => {
+  it("keeps the rings outside the Hijr Ismail wall", () => {
     const half = (HIJR.arcHalfAngleDeg * Math.PI) / 180;
     const outer = {
       x: HIJR.radiusX + HIJR.thickness / 2,
@@ -176,7 +290,7 @@ describe("tawaf crowd (Phase 2)", () => {
   });
 
   it("walks at slightly different speeds, never in lockstep", () => {
-    const speeds = walkers.map((w) => w.omega * (CLEARANCE.base + w.offset));
+    const speeds = walkers.map((w) => w.speed);
     const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
     const spread = Math.sqrt(speeds.reduce((a, b) => a + (b - mean) ** 2, 0) / speeds.length);
     // A real spread round a calm walking pace, but no one racing or stopped.

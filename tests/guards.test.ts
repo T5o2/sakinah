@@ -20,7 +20,12 @@ import {
   KAABA,
 } from "../src/components/scene/lib/layout";
 import { mergeParts, triangleCount } from "../src/components/scene/lib/parts";
-import { clearanceRadius } from "../src/components/scene/lib/tawaf";
+import { TAWAF } from "../src/lib/config/scene";
+import {
+  guardFloorPositions,
+  laneOffsets,
+  lanePoint,
+} from "../src/components/scene/lib/tawaf";
 
 const placements = guardPlacements();
 const byId = (id: string) => {
@@ -77,11 +82,23 @@ describe("guards", () => {
     }
   });
 
-  it("stay inside the tawaf clearance line, so walkers never pass through them", () => {
+  it("are where the tawaf lanes step aside for them", () => {
+    // The lanes' copy of where the guards stand matches the figures.
+    const floor = guardFloorPositions();
+    expect(floor).toHaveLength(placements.length);
+    placements.forEach((g, i) => {
+      expect(floor[i]!.x).toBeCloseTo(g.position.x, 9);
+      expect(floor[i]!.z).toBeCloseTo(g.position.z, 9);
+    });
+    // The innermost lane, which runs close to the walls, passes round each guard.
+    const inner = laneOffsets()[0]!;
     for (const g of placements) {
-      const theta = Math.atan2(-g.position.z, g.position.x);
-      const r = Math.hypot(g.position.x, g.position.z);
-      expect(r + 0.5).toBeLessThan(clearanceRadius(theta));
+      let nearest = Infinity;
+      for (let i = 0; i < 2880; i++) {
+        const p = lanePoint(inner, (i / 2880) * Math.PI * 2);
+        nearest = Math.min(nearest, Math.hypot(p.x - g.position.x, p.z - g.position.z));
+      }
+      expect(nearest).toBeGreaterThan(TAWAF.guardKeepOut.distance - 0.05);
     }
   });
 

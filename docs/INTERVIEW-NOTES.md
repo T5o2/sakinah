@@ -72,3 +72,50 @@ Phase 1 is **the foundation**, like the building's structure before the rooms. I
 **Interview tip:** end your explanation with a number. "18 automated tests, and 4 screenshots in both languages on mobile and desktop after every phase" shows you work with a system, not by guesswork.
 
 > **نصيحة:** اختم شرحك برقم، مثل «18 اختبارًا تلقائيًا و4 لقطات باللغتين على الجوال والديسكتوب بعد كل مرحلة»، فهذا يُظهر أنك تعمل بنظام لا بالتخمين.
+
+---
+
+## Phase 0 — Re-planning around a real, testable core
+
+### What changed and why
+
+The project's direction changed: the core product is now **crowd analysis you can trust**, not a recommendation. Recommendations and forecasts come later, on top of real data. Before writing any new code, I audited the repository against the new brief and sorted everything into three groups: what is actually built, what is only documented, and what now conflicts with the brief.
+
+One finding: a WebGL-support helper existed in the code but nothing used it, so a browser without WebGL would show a black hero. The documentation said a fallback existed. That's why I check the code, not the docs.
+
+> **بالعربي:** تغيّر اتجاه المشروع: المنتج الأساسي صار تحليل الحشد بثقة معلنة، والتوصية والتنبؤ يأتيان لاحقًا فوق بيانات حقيقية. قبل أي كود جديد، راجعت المستودع وقسّمته: ما بُني فعلًا، وما هو موثّق فقط، وما يتعارض مع التكليف. ومثال ما وجدته: دالة فحص WebGL موجودة ولا يستخدمها شيء، فالمتصفح بلا WebGL يرى خلفية سوداء رغم أن الوثائق تذكر بديلًا.
+
+### The 3 most important decisions
+
+**1. "Can we show it?" and "Can we analyze it?" are two separate questions**
+- A YouTube live stream can be embedded with the official player, but YouTube's terms forbid downloading or scraping its content, so we can't extract frames from it. Each source carries two permissions with evidence, and the label the user sees (*display and analyze*, *display only*, *unavailable*) is derived from both.
+- Automated discovery can only *suggest* candidates. A human approves the legal permission, because no crawler can read terms of service reliably.
+
+**2. Scheduling inside the app instead of n8n**
+- The periodic jobs are small and tightly tied to our own logic (ranking, failover). n8n would add a second system to deploy, secure, and monitor, and it would make the failover logic harder to unit-test.
+- I kept a clean boundary (a `Scheduler` interface and one protected internal endpoint) so an external orchestrator can be added later without a rewrite.
+
+**3. Honest numbers over impressive numbers**
+- A vision model can estimate *how full* a scene looks, but people per square meter needs camera calibration we don't have. So we show a density level, a defined relative index (never a percentage), and a count range only at high confidence.
+- The men/women estimate is experimental and off by default until it passes an accuracy test on labeled scenes.
+
+> **بالعربي:**
+> 1. **العرض والتحليل سؤالان منفصلان:** بث يوتيوب يُضمَّن بالمشغل الرسمي، لكن شروطه تمنع التنزيل والكشط، فلا نسحب منه إطارات. لكل مصدر إذنان بدليل، والتصنيف المعروض مشتق منهما، والاكتشاف الآلي يقترح فقط والموافقة بشرية.
+> 2. **جدولة داخل التطبيق بدل n8n:** المهام صغيرة ومرتبطة بمنطقنا، وn8n يضيف نظامًا ثانيًا للنشر والحماية ويصعّب الاختبار. تركت واجهة واضحة تسمح بإضافته لاحقًا.
+> 3. **أرقام صادقة لا مبهرة:** مستوى كثافة ومؤشر نسبي معرَّف لا نسبة مئوية، ونطاق للعدد عند الثقة العالية فقط. وتقدير الرجال والنساء تجريبي ومعطّل حتى يجتاز اختبار دقة.
+
+### 3 likely interview questions
+
+**Q1: Why not just pull frames from the YouTube stream? It's public.**
+> Public to watch isn't the same as allowed to process. YouTube's terms forbid downloading or automated access, and the developer policies forbid storing or separating the video. So we embed it for display only, label it clearly, and analyze uploads instead until we have a licensed stream.
+
+**Q2: How do you know a stream is really down, not just buffering?**
+> Two signals together: no new segment for a threshold (20 seconds by default) *and* two failed checks in a row. Then a few retries with growing delays, and only then a switch. The switch logic is a pure state machine, so I can test every path without a network.
+
+**Q3: How much does the analysis cost?**
+> Each frame is resized so it costs about 1,800 image tokens. On the default model that's about two cents a frame, so a 30-second sampling interval is about $2.60 an hour. Skipping frames that haven't changed, and choosing the model by measured accuracy, are the main levers.
+
+> **بالعربي:**
+> - **س1: لماذا لا نسحب الإطارات من بث يوتيوب وهو عام؟** المتاح للمشاهدة ليس مسموحًا بمعالجته. الشروط تمنع التنزيل والوصول الآلي، فنعرضه فقط بشارة واضحة، ونحلل المرفوعات حتى يتوفر بث مرخص.
+> - **س2: كيف تعرف أن البث انقطع فعلًا؟** إشارتان معًا: لا مقطع جديد لمدة 20 ثانية، وفشل فحصين متتاليين، ثم محاولات استعادة، ثم التبديل. والمنطق آلة حالات نقية تُختبر بلا شبكة.
+> - **س3: كم تكلفة التحليل؟** الإطار المصغّر نحو 1,800 رمز، أي نحو سنتين للإطار على النموذج الافتراضي، ونحو $2.60 للساعة بعينة كل 30 ثانية. وأهم ما يخفضها: تجاهل الإطارات التي لم تتغير، واختيار النموذج بقياس الدقة.

@@ -20,15 +20,12 @@ interface DevView {
 const SWAY_FADE_OUT_SEC = 0.3;
 
 /**
- * Portrait screens see less sideways and stack the text above the scene, so
- * the camera pulls back and aims higher, sitting the Kaaba lower in frame.
+ * Narrow frames (the scene's half of a desktop page, a phone) see less
+ * sideways: the camera pulls back until `CAMERA.minWidth` metres stay in view.
  */
-function framingForAspect(aspect: number) {
-  const portrait = Math.max(0, 1 - aspect);
-  return {
-    distance: CAMERA.distance * (1 + portrait * 1.1),
-    lift: portrait * 14,
-  };
+function distanceForAspect(aspect: number) {
+  const halfTan = Math.tan((CAMERA.fov / 2) * DEG);
+  return Math.max(CAMERA.distance, CAMERA.minWidth / (2 * aspect * halfTan));
 }
 
 /**
@@ -86,8 +83,8 @@ export function CameraRig({
 
     const azimuth = (v.azimuth + sway) * DEG;
     const elevation = v.elevation * DEG;
-    const { distance: d, lift } = framingForAspect(aspect);
-    target.set(CAMERA.target[0], CAMERA.target[1] + lift, CAMERA.target[2]);
+    const d = distanceForAspect(aspect);
+    target.set(...CAMERA.target);
 
     camera.position.set(
       target.x + d * Math.cos(elevation) * Math.sin(azimuth),

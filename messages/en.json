@@ -12,7 +12,33 @@
   },
   "home": {
     "title": "Should I go now, or wait?",
-    "lead": "Sakinah reads a photo or clip of Masjid al-Haram, estimates how crowded it is right now, and suggests the best time for your visit."
+    "lead": "Sakinah reads a view of the place, estimates how crowded it is right now, and shows you how far to trust the result.",
+    "analyze": "Analyze density",
+    "howLink": "How Sakinah works",
+    "how": {
+      "title": "How Sakinah works",
+      "steps": {
+        "source": {
+          "title": "Source",
+          "body": "A photo, a clip or a live stream of the place."
+        },
+        "analysis": {
+          "title": "Analysis",
+          "body": "We estimate how crowded the scene is from the image itself, without identifying anyone."
+        },
+        "result": {
+          "title": "Result",
+          "body": "The density level, with the image quality and how far the estimate can be trusted."
+        }
+      },
+      "note": "The analysis tool is still being built; these are the steps it will follow."
+    }
+  },
+  "analyze": {
+    "metaTitle": "Density analysis — Sakinah",
+    "title": "Density analysis",
+    "body": "The analysis tool is still being built. When it’s ready, you’ll upload a photo or clip here, or pick a live stream, and Sakinah will show you the density level and how far to trust it.",
+    "backHome": "Back to home"
   },
   "footer": {
     "privacy": "We don’t keep your photos or videos. Only the analysis numbers are stored, to improve recommendations."

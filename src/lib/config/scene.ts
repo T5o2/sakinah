@@ -126,13 +126,20 @@ export const TAWAF = {
 };
 
 export const CAMERA = {
-  fov: 32,
-  /** Aimed above the Kaaba so it sits below the hero text. */
-  target: [0, 9, 0] as [number, number, number],
-  /** Distance from the target, metres. */
+  /**
+   * A long lens: the Kaaba and the crowd fill the scene's column while the
+   * camera stays outside the colonnade ring (see Arcade), so no column
+   * comes between it and the mataf.
+   */
+  fov: 24,
+  /** Aimed at the crowd round the Kaaba, which fills the frame. */
+  target: [0, 4.5, 0] as [number, number, number],
+  /** Distance from the target, metres (more on narrow frames, see minWidth). */
   distance: 78,
   /** Degrees above the horizon — an upper-floor view. */
-  elevationDeg: 22,
+  elevationDeg: 21,
+  /** Least width kept in frame across the Kaaba, metres: narrow frames pull back. */
+  minWidth: 33,
   /** Bearing around the Kaaba; 0 faces the door wall (+Z). */
   azimuthDeg: 24,
   /** Gentle side-to-side drift of the idle orbit. */

@@ -127,17 +127,19 @@ export const TAWAF = {
 
 export const CAMERA = {
   /**
-   * A long lens: the Kaaba and the crowd fill the scene's column while the
-   * camera stays outside the colonnade ring (see Arcade), so no column
-   * comes between it and the mataf.
+   * The scene is seen through a round lens on the page. From this height
+   * and distance about 85% of the walkers fall inside it, with the Kaaba,
+   * the Hijr and the Maqam well within, and the outer lanes passing in and
+   * out of the dark at its rim. The camera stays far outside the colonnade
+   * ring (see Arcade), so no column comes between it and the mataf.
    */
-  fov: 24,
-  /** Aimed at the crowd round the Kaaba, which fills the frame. */
+  fov: 28,
+  /** Aimed at the crowd round the Kaaba, the middle of the lens. */
   target: [0, 4.5, 0] as [number, number, number],
   /** Distance from the target, metres (more on narrow frames, see minWidth). */
-  distance: 78,
-  /** Degrees above the horizon — an upper-floor view. */
-  elevationDeg: 21,
+  distance: 120,
+  /** Degrees above the horizon — an upper-floor view, high enough to see the whole ring. */
+  elevationDeg: 32,
   /** Least width kept in frame across the Kaaba, metres: narrow frames pull back. */
   minWidth: 33,
   /** Bearing around the Kaaba; 0 faces the door wall (+Z). */
